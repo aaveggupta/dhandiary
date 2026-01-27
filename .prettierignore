@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+.next/
+out/
+build/
+dist/
+
+# Generated files
+*.min.js
+*.min.css
+
+# Prisma
+prisma/migrations/
+
+# Old code
+_old/
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# IDE
+.idea/
+.vscode/
+
+# Cache
+.cache/

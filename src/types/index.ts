@@ -1,0 +1,132 @@
+import type {
+  User as PrismaUser,
+  UserSettings as PrismaUserSettings,
+  Account as PrismaAccount,
+  Transaction as PrismaTransaction,
+  Category as PrismaCategory,
+  AccountType,
+  TransactionType,
+} from '@prisma/client';
+
+// Re-export Prisma enums
+export { AccountType, TransactionType };
+
+// Extended types with relations
+export type User = PrismaUser & {
+  settings?: PrismaUserSettings | null;
+  accounts?: PrismaAccount[];
+  transactions?: PrismaTransaction[];
+  categories?: PrismaCategory[];
+};
+
+export type UserSettings = PrismaUserSettings;
+
+export type Account = PrismaAccount & {
+  transactions?: PrismaTransaction[];
+};
+
+export type Transaction = PrismaTransaction & {
+  category?: PrismaCategory | null;
+  account?: PrismaAccount;
+};
+
+export type Category = PrismaCategory & {
+  transactions?: PrismaTransaction[];
+};
+
+// API Response types
+export interface ApiResponse<T> {
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+// Dashboard analytics types
+export interface DashboardAnalytics {
+  netWorth: number;
+  totalIncome: number;
+  totalExpenses: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  incomeChange: number;
+  expenseChange: number;
+  recentTransactions: Transaction[];
+  accountBalances: {
+    id: string;
+    name: string;
+    type: AccountType;
+    balance: number;
+    currency: string;
+  }[];
+  weeklyActivity: {
+    day: string;
+    income: number;
+    expense: number;
+  }[];
+}
+
+// Form input types
+export interface CreateAccountInput {
+  name: string;
+  type: AccountType;
+  balance?: number;
+  creditLimit?: number; // For credit cards
+  currency?: string;
+  icon?: string;
+  bankName?: string; // Bank or card issuer name
+  lastFourDigits?: string; // Last 4 digits of account/card number
+  description?: string; // Custom nickname or description
+}
+
+export interface UpdateAccountInput {
+  name?: string;
+  type?: AccountType;
+  creditLimit?: number; // Can update credit limit, but NOT balance directly
+  currency?: string;
+  icon?: string;
+  bankName?: string | null;
+  lastFourDigits?: string | null;
+  description?: string | null;
+  isArchived?: boolean;
+}
+
+export interface CreateTransactionInput {
+  amount: number;
+  type: TransactionType;
+  categoryId?: string;
+  accountId: string;
+  note?: string;
+  date?: string;
+}
+
+export interface UpdateTransactionInput {
+  amount?: number;
+  type?: TransactionType;
+  categoryId?: string;
+  accountId?: string;
+  note?: string;
+  date?: Date;
+}
+
+export interface CreateCategoryInput {
+  name: string;
+  icon?: string;
+  color?: string;
+  type: TransactionType;
+}
+
+export interface UpdateSettingsInput {
+  currency?: string;
+  monthlyIncome?: number;
+  onboardingComplete?: boolean;
+}
+
+// Query filter types
+export interface TransactionFilters {
+  type?: TransactionType;
+  categoryId?: string;
+  accountId?: string;
+  startDate?: Date;
+  endDate?: Date;
+  search?: string;
+}

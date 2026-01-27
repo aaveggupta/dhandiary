@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id // Clerk user ID
+  email        String        @unique
+  firstName    String?
+  lastName     String?
+  imageUrl     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  accounts     Account[]
+  transactions Transaction[]
+  categories   Category[]
+  settings     UserSettings?
+}
+
+model UserSettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency           String   @default("USD")
+  monthlyIncome      Decimal? @db.Decimal(12, 2)
+  onboardingComplete Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Account {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name            String
+  type            AccountType
+  balance         Decimal       @default(0) @db.Decimal(12, 2)
+  creditLimit     Decimal?      @db.Decimal(12, 2) // Only for CREDIT type accounts
+  currency        String        @default("USD")
+  icon            String?
+  bankName        String?       // Bank or card issuer name
+  lastFourDigits  String?       // Last 4 digits of account/card number
+  description     String?       // Custom nickname or description
+  isArchived      Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  transactions    Transaction[]
+
+  @@index([userId])
+}
+
+model Transaction {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount     Decimal         @db.Decimal(12, 2)
+  type       TransactionType
+  categoryId String?
+  category   Category?       @relation(fields: [categoryId], references: [id])
+  accountId  String
+  account    Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  note       String?
+  date       DateTime        @default(now())
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([categoryId])
+  @@index([date])
+}
+
+model Category {
+  id           String          @id @default(cuid())
+  userId       String?
+  user         User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  icon         String?
+  color        String?
+  type         TransactionType
+  isSystem     Boolean         @default(false)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([type])
+}
+
+enum AccountType {
+  BANK      // Bank accounts (Salary, Savings, Current)
+  CREDIT    // Credit cards
+  CASH      // Physical cash/wallet
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
