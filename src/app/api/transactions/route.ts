@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { createTransactionSchema, transactionQuerySchema } from '@/lib/validations';
 import { ZodError } from 'zod';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
+import { getAvailableCreditForAccount } from '@/lib/credit-utils';
 
 // GET /api/transactions - List transactions with filters
 export async function GET(req: Request) {
@@ -89,9 +90,18 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = createTransactionSchema.parse(body);
 
-    // Verify account belongs to user and get full account details
+    // Verify account belongs to user and get full account details (including shared limit if any)
     const account = await prisma.account.findFirst({
       where: { id: validatedData.accountId, userId },
+      include: {
+        sharedCreditLimit: {
+          include: {
+            accounts: {
+              select: { id: true, balance: true },
+            },
+          },
+        },
+      },
     });
 
     if (!account) {
@@ -101,21 +111,20 @@ export async function POST(req: Request) {
     // Validate sufficient funds for expenses (convert Decimal to number)
     if (validatedData.type === TRANSACTION_TYPES.EXPENSE) {
       const accountBalance = Number(account.balance);
-      const accountCreditLimit = Number(account.creditLimit) || 0;
 
       if (account.type === ACCOUNT_TYPES.CREDIT) {
-        // For credit cards: check available credit limit
-        // Available credit = creditLimit - |balance| (balance is negative, representing debt)
-        const currentDebt = Math.abs(accountBalance);
-        const availableCredit = accountCreditLimit - currentDebt;
+        // For credit cards: check available credit (considering shared limits)
+        const availableCredit = getAvailableCreditForAccount(account);
 
         if (validatedData.amount > availableCredit) {
+          const isShared = !!account.sharedCreditLimitId;
           return NextResponse.json(
             {
-              error: `Insufficient credit limit. Available: ${availableCredit.toFixed(2)}, Required: ${validatedData.amount.toFixed(2)}`,
+              error: `Insufficient credit limit${isShared ? ' (shared)' : ''}. Available: ${availableCredit.toFixed(2)}, Required: ${validatedData.amount.toFixed(2)}`,
               code: 'INSUFFICIENT_CREDIT',
               available: availableCredit,
               required: validatedData.amount,
+              isSharedLimit: isShared,
             },
             { status: 400 }
           );

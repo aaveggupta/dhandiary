@@ -4,6 +4,7 @@ import type {
   Account as PrismaAccount,
   Transaction as PrismaTransaction,
   Category as PrismaCategory,
+  SharedCreditLimit as PrismaSharedCreditLimit,
   AccountType,
   TransactionType,
 } from '@prisma/client';
@@ -23,6 +24,11 @@ export type UserSettings = PrismaUserSettings;
 
 export type Account = PrismaAccount & {
   transactions?: PrismaTransaction[];
+  sharedCreditLimit?: {
+    id: string;
+    name: string;
+    totalLimit: number | { toNumber: () => number };
+  } | null;
 };
 
 export type Transaction = PrismaTransaction & {
@@ -33,6 +39,37 @@ export type Transaction = PrismaTransaction & {
 export type Category = PrismaCategory & {
   transactions?: PrismaTransaction[];
 };
+
+// Shared Credit Limit types
+export type SharedCreditLimit = PrismaSharedCreditLimit & {
+  accounts?: Account[];
+};
+
+export interface SharedCreditLimitWithStats extends Omit<SharedCreditLimit, 'totalLimit'> {
+  totalLimit: number; // Converted from Decimal
+  totalOutstanding: number;
+  availableCredit: number;
+  utilization: number;
+  linkedAccounts: Array<{
+    id: string;
+    name: string;
+    outstanding: number;
+    bankName: string | null;
+    lastFourDigits: string | null;
+  }>;
+}
+
+export interface CreateSharedCreditLimitInput {
+  name: string;
+  totalLimit: number;
+  description?: string;
+}
+
+export interface UpdateSharedCreditLimitInput {
+  name?: string;
+  totalLimit?: number;
+  description?: string | null;
+}
 
 // API Response types
 export interface ApiResponse<T> {

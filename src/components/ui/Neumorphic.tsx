@@ -237,9 +237,10 @@ export const IconButton: React.FC<IconButtonProps> = ({
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'success' | 'warning' | 'danger' | 'neutral';
+  className?: string;
 }
 
-export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral' }) => {
+export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral', className }) => {
   const styles = {
     success: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
     warning: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
@@ -251,7 +252,8 @@ export const Badge: React.FC<BadgeProps> = ({ children, variant = 'neutral' }) =
     <span
       className={cn(
         'rounded-md border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
-        styles[variant]
+        styles[variant],
+        className
       )}
     >
       {children}

@@ -81,6 +81,23 @@ export const transactionQuerySchema = z.object({
   offset: z.coerce.number().min(0).optional().default(0),
 });
 
+// Shared Credit Limit schemas
+export const createSharedCreditLimitSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(50),
+  totalLimit: z.number().min(0, 'Total limit must be positive'),
+  description: z.string().max(200).optional(),
+});
+
+export const updateSharedCreditLimitSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  totalLimit: z.number().min(0).optional(),
+  description: z.string().max(200).optional().nullable(),
+});
+
+export const linkAccountSchema = z.object({
+  accountId: z.string().min(1, 'Account ID is required'),
+});
+
 // Type exports
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
@@ -89,3 +106,6 @@ export type UpdateTransactionInput = z.infer<typeof updateTransactionSchema>;
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 export type TransactionQueryInput = z.infer<typeof transactionQuerySchema>;
+export type CreateSharedCreditLimitInput = z.infer<typeof createSharedCreditLimitSchema>;
+export type UpdateSharedCreditLimitInput = z.infer<typeof updateSharedCreditLimitSchema>;
+export type LinkAccountInput = z.infer<typeof linkAccountSchema>;

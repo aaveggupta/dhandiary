@@ -18,6 +18,15 @@ export async function GET() {
         userId,
         isArchived: false,
       },
+      include: {
+        sharedCreditLimit: {
+          select: {
+            id: true,
+            name: true,
+            totalLimit: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: 'desc',
       },

@@ -92,11 +92,10 @@ export async function POST(req: Request) {
               userId,
               name: account.name,
               type: account.type,
-              // For credit cards, balance should be negative (represents debt)
+              // For credit cards: positive outstanding (owed) → negative balance
+              // negative outstanding (credit/refund) → positive balance
               balance:
-                account.type === ACCOUNT_TYPES.CREDIT
-                  ? -Math.abs(account.balance)
-                  : account.balance,
+                account.type === ACCOUNT_TYPES.CREDIT ? -account.balance : account.balance,
               currency: account.currency,
               bankName: account.bankName || null,
               lastFourDigits: account.lastFourDigits || null,

@@ -3,7 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Select, Spinner } from '@/components/ui';
-import { useAccounts, useCategories, useCreateTransaction, useSettings } from '@/hooks';
+import {
+  useAccounts,
+  useCategories,
+  useCreateTransaction,
+  useSettings,
+  useSharedCreditLimits,
+} from '@/hooks';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES, getCurrencySymbol } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
 import {
@@ -21,6 +27,7 @@ export default function AddTransactionPage() {
   const router = useRouter();
   const { data: accounts, isLoading: accountsLoading } = useAccounts();
   const { data: settings } = useSettings();
+  const { data: sharedLimits } = useSharedCreditLimits();
   const createTransaction = useCreateTransaction();
 
   const [type, setType] = useState<TransactionType>(TRANSACTION_TYPES.EXPENSE);
@@ -38,12 +45,22 @@ export default function AddTransactionPage() {
   // Get selected account details
   const currentAccount = accounts?.find((a) => a.id === selectedAccount);
 
+  // Get shared limit if the account is part of one
+  const currentSharedLimit = currentAccount?.sharedCreditLimitId
+    ? sharedLimits?.find((sl) => sl.id === currentAccount.sharedCreditLimitId)
+    : null;
+
   // Calculate available funds for the selected account
   const getAvailableFunds = () => {
     if (!currentAccount) return null;
 
     if (currentAccount.type === ACCOUNT_TYPES.CREDIT) {
-      // For credit cards: available = creditLimit - |balance|
+      // Check if card is in a shared limit group
+      if (currentSharedLimit) {
+        // Use shared limit's available credit
+        return currentSharedLimit.availableCredit;
+      }
+      // For individual credit cards: available = creditLimit - |balance|
       const currentDebt = Math.abs(Number(currentAccount.balance));
       return (Number(currentAccount.creditLimit) || 0) - currentDebt;
     }
@@ -52,6 +69,7 @@ export default function AddTransactionPage() {
   };
 
   const availableFunds = getAvailableFunds();
+  const isSharedLimit = !!currentSharedLimit;
   const numAmount = parseFloat(amount) || 0;
 
   // Check if expense exceeds available funds
@@ -209,9 +227,16 @@ export default function AddTransactionPage() {
                 className={`mt-3 text-center text-sm ${isInsufficientFunds ? 'text-red-400' : 'text-muted'}`}
               >
                 {currentAccount.type === ACCOUNT_TYPES.CREDIT
-                  ? 'Available Credit: '
+                  ? isSharedLimit
+                    ? 'Available Credit (Shared): '
+                    : 'Available Credit: '
                   : 'Available Balance: '}
                 <span className="font-semibold">{formatCurrency(availableFunds, currency)}</span>
+                {isSharedLimit && currentSharedLimit && (
+                  <span className="ml-1 text-xs text-indigo-400">
+                    ({currentSharedLimit.name})
+                  </span>
+                )}
               </div>
             )}
 
@@ -221,7 +246,11 @@ export default function AddTransactionPage() {
                 <AlertCircle size={16} />
                 <span>
                   Exceeds available{' '}
-                  {currentAccount?.type === ACCOUNT_TYPES.CREDIT ? 'credit limit' : 'balance'}
+                  {currentAccount?.type === ACCOUNT_TYPES.CREDIT
+                    ? isSharedLimit
+                      ? 'shared credit limit'
+                      : 'credit limit'
+                    : 'balance'}
                 </span>
               </div>
             )}
