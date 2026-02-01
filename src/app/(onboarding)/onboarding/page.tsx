@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, Input, Spinner } from '@/components/ui';
+import { BankSelect } from '@/components/shared';
 import { useSettings, useCompleteOnboarding } from '@/hooks';
 import {
   ArrowRight,
@@ -38,6 +39,11 @@ interface AccountSetup {
   lastFourDigits?: string;
   description?: string;
   creditLimit?: number;
+  // Credit card specific fields
+  billingCycleDay?: number;
+  paymentDueDay?: number;
+  utilizationAlertEnabled?: boolean;
+  utilizationAlertPercent?: number;
 }
 
 // Generate account type options from config
@@ -277,6 +283,18 @@ export default function OnboardingPage() {
           lastFourDigits: account.lastFourDigits || undefined,
           description: account.description || undefined,
           creditLimit: account.type === ACCOUNT_TYPES.CREDIT ? account.creditLimit : undefined,
+          // Credit card specific fields
+          billingCycleDay:
+            account.type === ACCOUNT_TYPES.CREDIT ? account.billingCycleDay : undefined,
+          paymentDueDay: account.type === ACCOUNT_TYPES.CREDIT ? account.paymentDueDay : undefined,
+          utilizationAlertEnabled:
+            account.type === ACCOUNT_TYPES.CREDIT
+              ? (account.utilizationAlertEnabled ?? true)
+              : undefined,
+          utilizationAlertPercent:
+            account.type === ACCOUNT_TYPES.CREDIT
+              ? (account.utilizationAlertPercent ?? 30)
+              : undefined,
         })),
         currency,
         monthlyIncome: monthlyIncome ? Number(monthlyIncome) : undefined,
@@ -522,7 +540,10 @@ export default function OnboardingPage() {
   // Step: Account Setup
   if (step === STEPS.ACCOUNTS_SETUP) {
     const currentAccount = accounts[currentAccountIndex];
-    const updateAccount = (key: keyof AccountSetup, value: string | number | undefined) => {
+    const updateAccount = (
+      key: keyof AccountSetup,
+      value: string | number | boolean | undefined
+    ) => {
       // Clear validation error when user starts editing
       if (validationError) setValidationError(null);
 
@@ -576,12 +597,16 @@ export default function OnboardingPage() {
           />
 
           {(isBankAccount || isCreditCard) && (
-            <Input
-              label={isCreditCard ? 'Card Issuer / Bank' : 'Bank Name'}
-              value={currentAccount?.bankName || ''}
-              onChange={(e) => updateAccount('bankName', e.target.value)}
-              placeholder={isCreditCard ? 'e.g. HDFC, ICICI, Amex' : 'e.g. HDFC Bank, SBI'}
-            />
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-300">
+                {isCreditCard ? 'Card Issuer / Bank' : 'Bank Name'}
+              </label>
+              <BankSelect
+                value={currentAccount?.bankName || ''}
+                onChange={(value) => updateAccount('bankName', value)}
+                placeholder={isCreditCard ? 'Select card issuer...' : 'Select bank...'}
+              />
+            </div>
           )}
 
           {(isBankAccount || isCreditCard) && (
@@ -617,6 +642,80 @@ export default function OnboardingPage() {
                 onChange={(e) => updateAccount('balance', parseFloat(e.target.value) || 0)}
                 placeholder="e.g. 15000"
               />
+
+              {/* Credit Card Billing Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Billing Cycle Day"
+                  type="number"
+                  value={currentAccount?.billingCycleDay || ''}
+                  onChange={(e) => {
+                    const val = Math.min(31, Math.max(1, parseInt(e.target.value) || 0));
+                    updateAccount('billingCycleDay', val || undefined);
+                  }}
+                  placeholder="e.g. 15"
+                  min={1}
+                  max={31}
+                />
+                <Input
+                  label="Payment Due Day"
+                  type="number"
+                  value={currentAccount?.paymentDueDay || ''}
+                  onChange={(e) => {
+                    const val = Math.min(31, Math.max(1, parseInt(e.target.value) || 0));
+                    updateAccount('paymentDueDay', val || undefined);
+                  }}
+                  placeholder="e.g. 5"
+                  min={1}
+                  max={31}
+                />
+              </div>
+
+              {/* Utilization Alert Settings */}
+              <div className="rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <label className="text-sm font-medium text-slate-300">Utilization Alert</label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateAccount(
+                        'utilizationAlertEnabled',
+                        !(currentAccount?.utilizationAlertEnabled ?? true)
+                      )
+                    }
+                    className={`relative h-6 w-11 rounded-full transition-colors ${
+                      (currentAccount?.utilizationAlertEnabled ?? true)
+                        ? 'bg-emerald-500'
+                        : 'bg-slate-600'
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+                        (currentAccount?.utilizationAlertEnabled ?? true)
+                          ? 'translate-x-5'
+                          : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+                {(currentAccount?.utilizationAlertEnabled ?? true) && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-slate-400">Alert when utilization exceeds</span>
+                    <Input
+                      type="number"
+                      value={currentAccount?.utilizationAlertPercent ?? 30}
+                      onChange={(e) => {
+                        const val = Math.min(100, Math.max(1, parseInt(e.target.value) || 30));
+                        updateAccount('utilizationAlertPercent', val);
+                      }}
+                      className="w-20"
+                      min={1}
+                      max={100}
+                    />
+                    <span className="text-sm text-slate-400">%</span>
+                  </div>
+                )}
+              </div>
             </>
           )}
 

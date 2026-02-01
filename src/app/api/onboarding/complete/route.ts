@@ -32,6 +32,11 @@ const accountSchema = z.object({
     .optional()
     .transform((val) => (val === '' ? undefined : val)),
   creditLimit: z.number().optional(),
+  // Credit card specific fields
+  billingCycleDay: z.number().min(1).max(31).optional(),
+  paymentDueDay: z.number().min(1).max(31).optional(),
+  utilizationAlertEnabled: z.boolean().optional(),
+  utilizationAlertPercent: z.number().min(1).max(100).optional(),
 });
 
 // Validation schema for the complete onboarding request
@@ -100,6 +105,18 @@ export async function POST(req: Request) {
               lastFourDigits: account.lastFourDigits || null,
               description: account.description || null,
               creditLimit: account.type === ACCOUNT_TYPES.CREDIT ? account.creditLimit : null,
+              // Credit card specific fields
+              billingCycleDay:
+                account.type === ACCOUNT_TYPES.CREDIT ? account.billingCycleDay : null,
+              paymentDueDay: account.type === ACCOUNT_TYPES.CREDIT ? account.paymentDueDay : null,
+              utilizationAlertEnabled:
+                account.type === ACCOUNT_TYPES.CREDIT
+                  ? (account.utilizationAlertEnabled ?? true)
+                  : true,
+              utilizationAlertPercent:
+                account.type === ACCOUNT_TYPES.CREDIT
+                  ? (account.utilizationAlertPercent ?? 30)
+                  : 30,
             },
           })
         )
