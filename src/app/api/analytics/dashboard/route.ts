@@ -1,7 +1,8 @@
 import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
-import { ACCOUNT_TYPES, TRANSACTION_TYPES } from '@/lib/constants';
+import { TRANSACTION_TYPES } from '@/lib/constants';
+import { calculateNetWorth, toNumber, roundMoney, calculatePercentageChange } from '@/lib/finance';
 
 // GET /api/analytics/dashboard - Get dashboard statistics
 export async function GET() {
@@ -92,61 +93,58 @@ export async function GET() {
       }),
     ]);
 
-    // Calculate totals (convert Decimal to number)
-    const netWorth = accounts.reduce((sum, acc) => {
-      const balance = Number(acc.balance);
-      // For credit accounts, the balance represents debt
-      if (acc.type === ACCOUNT_TYPES.CREDIT) {
-        return sum - Math.abs(balance);
-      }
-      return sum + balance;
-    }, 0);
+    // Calculate net worth using single source of truth
+    const netWorthResult = calculateNetWorth(
+      accounts.map(acc => ({ type: acc.type, balance: acc.balance }))
+    );
+    const netWorth = netWorthResult.netWorth;
 
-    // Current month stats
-    const monthlyIncome = currentMonthTransactions
-      .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    // Current month stats using toNumber for consistency
+    const monthlyIncome = roundMoney(
+      currentMonthTransactions
+        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
+        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+    );
 
-    const monthlyExpenses = currentMonthTransactions
-      .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const monthlyExpenses = roundMoney(
+      currentMonthTransactions
+        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
+        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+    );
 
     // Previous month stats for comparison
-    const prevMonthIncome = prevMonthTransactions
-      .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const prevMonthIncome = roundMoney(
+      prevMonthTransactions
+        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
+        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+    );
 
-    const prevMonthExpenses = prevMonthTransactions
-      .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const prevMonthExpenses = roundMoney(
+      prevMonthTransactions
+        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
+        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+    );
 
-    // Calculate percentage changes
-    const incomeChange =
-      prevMonthIncome === 0
-        ? monthlyIncome > 0
-          ? 100
-          : 0
-        : ((monthlyIncome - prevMonthIncome) / prevMonthIncome) * 100;
-
-    const expenseChange =
-      prevMonthExpenses === 0
-        ? monthlyExpenses > 0
-          ? 100
-          : 0
-        : ((monthlyExpenses - prevMonthExpenses) / prevMonthExpenses) * 100;
+    // Calculate percentage changes using single source of truth
+    const incomeChange = calculatePercentageChange(monthlyIncome, prevMonthIncome);
+    const expenseChange = calculatePercentageChange(monthlyExpenses, prevMonthExpenses);
 
     // Calculate all-time totals
     const allTransactions = await prisma.transaction.findMany({
       where: { userId },
     });
 
-    const totalIncome = allTransactions
-      .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalIncome = roundMoney(
+      allTransactions
+        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
+        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+    );
 
-    const totalExpenses = allTransactions
-      .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalExpenses = roundMoney(
+      allTransactions
+        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
+        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+    );
 
     // Build weekly activity data
     const weeklyActivity = [];
@@ -165,13 +163,17 @@ export async function GET() {
         return tDate >= dayStart && tDate <= dayEnd;
       });
 
-      const income = dayTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const income = roundMoney(
+        dayTransactions
+          .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
+          .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      );
 
-      const expense = dayTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
+      const expense = roundMoney(
+        dayTransactions
+          .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
+          .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      );
 
       weeklyActivity.push({
         day: dayNames[date.getDay()],
@@ -180,15 +182,15 @@ export async function GET() {
       });
     }
 
-    // Convert Decimal to number for JSON serialization
+    // Convert Decimal to number for JSON serialization using toNumber
     const serializedAccounts = accounts.map((acc) => ({
       ...acc,
-      balance: Number(acc.balance),
+      balance: toNumber(acc.balance),
     }));
 
     const serializedRecentTransactions = recentTransactions.map((t) => ({
       ...t,
-      amount: Number(t.amount),
+      amount: toNumber(t.amount),
     }));
 
     return NextResponse.json({
@@ -198,8 +200,8 @@ export async function GET() {
         totalExpenses,
         monthlyIncome,
         monthlyExpenses,
-        incomeChange: Math.round(incomeChange * 10) / 10,
-        expenseChange: Math.round(expenseChange * 10) / 10,
+        incomeChange: roundMoney(incomeChange, 1),
+        expenseChange: roundMoney(expenseChange, 1),
         recentTransactions: serializedRecentTransactions,
         accountBalances: serializedAccounts,
         weeklyActivity,

@@ -15,6 +15,11 @@ export const createAccountSchema = z.object({
     .regex(/^\d{4}$/, 'Must be exactly 4 digits')
     .optional(),
   description: z.string().max(100).optional(), // Custom nickname or description
+  // Credit card specific fields
+  billingCycleDay: z.number().min(1).max(31).optional(), // Day of month when billing cycle ends
+  paymentDueDay: z.number().min(1).max(31).optional(), // Day of month when payment is due
+  utilizationAlertEnabled: z.boolean().optional().default(true),
+  utilizationAlertPercent: z.number().min(1).max(100).optional().default(30),
 });
 
 export const updateAccountSchema = z.object({
@@ -33,6 +38,11 @@ export const updateAccountSchema = z.object({
     .nullable(),
   description: z.string().max(100).optional().nullable(),
   isArchived: z.boolean().optional(),
+  // Credit card specific fields
+  billingCycleDay: z.number().min(1).max(31).optional().nullable(),
+  paymentDueDay: z.number().min(1).max(31).optional().nullable(),
+  utilizationAlertEnabled: z.boolean().optional(),
+  utilizationAlertPercent: z.number().min(1).max(100).optional(),
 });
 
 // Transaction schemas

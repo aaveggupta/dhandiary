@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { createTransactionSchema, transactionQuerySchema } from '@/lib/validations';
 import { ZodError } from 'zod';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
-import { getAvailableCreditForAccount } from '@/lib/credit-utils';
+import { getAvailableCredit } from '@/lib/finance';
 
 // GET /api/transactions - List transactions with filters
 export async function GET(req: Request) {
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
 
       if (account.type === ACCOUNT_TYPES.CREDIT) {
         // For credit cards: check available credit (considering shared limits)
-        const availableCredit = getAvailableCreditForAccount(account);
+        const availableCredit = getAvailableCredit(account);
 
         if (validatedData.amount > availableCredit) {
           const isShared = !!account.sharedCreditLimitId;

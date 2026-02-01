@@ -102,6 +102,39 @@ export interface DashboardAnalytics {
   }[];
 }
 
+// Credit Card Insight types
+export interface CreditCardInsight {
+  id: string;
+  name: string;
+  bankName: string | null;
+  lastFourDigits: string | null;
+  creditLimit: number;
+  currentBalance: number;
+  availableCredit: number;
+  utilizationPercent: number;
+  utilizationStatus: 'good' | 'warning' | 'danger';
+  billingCycleDay: number | null;
+  paymentDueDay: number | null;
+  daysUntilDue: number | null;
+  utilizationAlertEnabled: boolean;
+  utilizationAlertPercent: number;
+}
+
+export interface CreditCardInsightsResponse {
+  cards: CreditCardInsight[];
+  summary: {
+    totalCards: number;
+    totalCreditLimit: number;
+    totalBalance: number;
+    totalAvailable: number;
+    overallUtilization: number;
+  };
+  alerts: {
+    highUtilization: CreditCardInsight[];
+    upcomingDues: CreditCardInsight[];
+  };
+}
+
 // Form input types
 export interface CreateAccountInput {
   name: string;
@@ -113,6 +146,11 @@ export interface CreateAccountInput {
   bankName?: string; // Bank or card issuer name
   lastFourDigits?: string; // Last 4 digits of account/card number
   description?: string; // Custom nickname or description
+  // Credit card specific fields
+  billingCycleDay?: number;
+  paymentDueDay?: number;
+  utilizationAlertEnabled?: boolean;
+  utilizationAlertPercent?: number;
 }
 
 export interface UpdateAccountInput {
@@ -125,6 +163,11 @@ export interface UpdateAccountInput {
   lastFourDigits?: string | null;
   description?: string | null;
   isArchived?: boolean;
+  // Credit card specific fields
+  billingCycleDay?: number | null;
+  paymentDueDay?: number | null;
+  utilizationAlertEnabled?: boolean;
+  utilizationAlertPercent?: number;
 }
 
 export interface CreateTransactionInput {

@@ -63,6 +63,11 @@ export async function POST(req: Request) {
         bankName: validatedData.bankName,
         lastFourDigits: validatedData.lastFourDigits,
         description: validatedData.description,
+        // Credit card specific fields
+        billingCycleDay: validatedData.billingCycleDay,
+        paymentDueDay: validatedData.paymentDueDay,
+        utilizationAlertEnabled: validatedData.utilizationAlertEnabled ?? true,
+        utilizationAlertPercent: validatedData.utilizationAlertPercent ?? 30,
       },
     });
 

@@ -12,6 +12,7 @@ import {
 } from '@/hooks';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES, getCurrencySymbol } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
+import { getCreditCardStatus, toNumber } from '@/lib/finance';
 import {
   X,
   ArrowUpRight,
@@ -82,11 +83,16 @@ export default function AddTransactionPage() {
   const getAvailableFunds = () => {
     if (!currentAccount) return null;
     if (currentAccount.type === ACCOUNT_TYPES.CREDIT) {
+      // Use shared limit's available credit if applicable
       if (currentSharedLimit) return currentSharedLimit.availableCredit;
-      const currentDebt = Math.abs(Number(currentAccount.balance));
-      return (Number(currentAccount.creditLimit) || 0) - currentDebt;
+      // Otherwise use getCreditCardStatus for single source of truth
+      const cardStatus = getCreditCardStatus({
+        balance: toNumber(currentAccount.balance),
+        creditLimit: toNumber(currentAccount.creditLimit),
+      });
+      return cardStatus.availableCredit;
     }
-    return Number(currentAccount.balance);
+    return toNumber(currentAccount.balance);
   };
 
   const availableFunds = getAvailableFunds();
@@ -331,7 +337,7 @@ export default function AddTransactionPage() {
               <div className="flex-1 text-left min-w-0">
                 <p className="font-semibold truncate text-sm">{currentAccount?.name || 'Select'}</p>
                 <p className="text-xs text-muted truncate">
-                  {currentAccount && formatCurrency(Number(currentAccount.balance), currency)}
+                  {currentAccount && formatCurrency(toNumber(currentAccount.balance), currency)}
                 </p>
               </div>
               <ChevronDown size={16} className={`text-muted transition-transform flex-shrink-0 ${showAccountDropdown ? 'rotate-180' : ''}`} />
@@ -357,7 +363,7 @@ export default function AddTransactionPage() {
                     </div>
                     <div className="flex-1 text-left min-w-0">
                       <p className="text-sm font-medium truncate">{account.name}</p>
-                      <p className="text-xs text-muted">{formatCurrency(Number(account.balance), currency)}</p>
+                      <p className="text-xs text-muted">{formatCurrency(toNumber(account.balance), currency)}</p>
                     </div>
                     {selectedAccount === account.id && (
                       <Check size={16} className="text-primary flex-shrink-0" />

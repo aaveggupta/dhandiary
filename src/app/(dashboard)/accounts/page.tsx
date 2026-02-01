@@ -25,7 +25,8 @@ import {
   useUnlinkAccountFromSharedLimit,
 } from '@/hooks';
 import { formatCurrency } from '@/lib/utils';
-import { ACCOUNT_TYPES, getAccountTypeOptions, isLiabilityAccount } from '@/lib/constants';
+import { ACCOUNT_TYPES, getAccountTypeOptions } from '@/lib/constants';
+import { calculateNetWorth, toNumber } from '@/lib/finance';
 import { Plus, Link2 } from 'lucide-react';
 import type { Account, AccountType, SharedCreditLimitWithStats } from '@/types';
 
@@ -71,6 +72,11 @@ export default function AccountsPage() {
     bankName: '',
     lastFourDigits: '',
     description: '',
+    // Credit card specific fields
+    billingCycleDay: '',
+    paymentDueDay: '',
+    utilizationAlertEnabled: true,
+    utilizationAlertPercent: 30,
   });
 
   const [editForm, setEditForm] = useState({
@@ -79,6 +85,11 @@ export default function AccountsPage() {
     bankName: '',
     lastFourDigits: '',
     description: '',
+    // Credit card specific fields
+    billingCycleDay: '',
+    paymentDueDay: '',
+    utilizationAlertEnabled: true,
+    utilizationAlertPercent: 30,
   });
 
   const [adjustmentForm, setAdjustmentForm] = useState({
@@ -115,24 +126,17 @@ export default function AccountsPage() {
     return { accountsBySharedLimit: bySharedLimit, standaloneAccounts: standalone };
   }, [accounts]);
 
-  // Calculate totals (convert Decimal to number)
-  const totalAssets =
-    accounts?.reduce((acc, curr) => {
-      if (!isLiabilityAccount(curr.type)) {
-        return acc + Number(curr.balance);
-      }
-      return acc;
-    }, 0) || 0;
+  // Calculate totals using single source of truth
+  const netWorthResult = useMemo(() => {
+    if (!accounts || accounts.length === 0) {
+      return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 };
+    }
+    return calculateNetWorth(
+      accounts.map(acc => ({ type: acc.type, balance: toNumber(acc.balance) }))
+    );
+  }, [accounts]);
 
-  const totalLiabilities =
-    accounts?.reduce((acc, curr) => {
-      if (isLiabilityAccount(curr.type)) {
-        return acc + Math.abs(Number(curr.balance));
-      }
-      return acc;
-    }, 0) || 0;
-
-  const netWorth = totalAssets - totalLiabilities;
+  const { totalAssets, totalLiabilities, netWorth } = netWorthResult;
 
   // Modal handlers - Accounts
   const openCreateModal = () => {
@@ -144,6 +148,10 @@ export default function AccountsPage() {
       bankName: '',
       lastFourDigits: '',
       description: '',
+      billingCycleDay: '',
+      paymentDueDay: '',
+      utilizationAlertEnabled: true,
+      utilizationAlertPercent: 30,
     });
     setShowCreateModal(true);
   };
@@ -156,6 +164,10 @@ export default function AccountsPage() {
       bankName: account.bankName || '',
       lastFourDigits: account.lastFourDigits || '',
       description: account.description || '',
+      billingCycleDay: account.billingCycleDay?.toString() || '',
+      paymentDueDay: account.paymentDueDay?.toString() || '',
+      utilizationAlertEnabled: account.utilizationAlertEnabled ?? true,
+      utilizationAlertPercent: account.utilizationAlertPercent ?? 30,
     });
   };
 
@@ -194,6 +206,15 @@ export default function AccountsPage() {
         bankName: createForm.bankName || undefined,
         lastFourDigits: createForm.lastFourDigits || undefined,
         description: createForm.description || undefined,
+        // Credit card specific fields
+        billingCycleDay: isCreditCard && createForm.billingCycleDay 
+          ? parseInt(createForm.billingCycleDay) 
+          : undefined,
+        paymentDueDay: isCreditCard && createForm.paymentDueDay 
+          ? parseInt(createForm.paymentDueDay) 
+          : undefined,
+        utilizationAlertEnabled: isCreditCard ? createForm.utilizationAlertEnabled : undefined,
+        utilizationAlertPercent: isCreditCard ? createForm.utilizationAlertPercent : undefined,
       });
       setShowCreateModal(false);
     } catch (error) {
@@ -205,14 +226,23 @@ export default function AccountsPage() {
     if (!editingAccount || !editForm.name) return;
 
     try {
+      const isCreditCard = editingAccount.type === ACCOUNT_TYPES.CREDIT;
       await updateAccount.mutateAsync({
         id: editingAccount.id,
         name: editForm.name,
-        creditLimit:
-          editingAccount.type === ACCOUNT_TYPES.CREDIT ? editForm.creditLimit : undefined,
+        creditLimit: isCreditCard ? editForm.creditLimit : undefined,
         bankName: editForm.bankName || null,
         lastFourDigits: editForm.lastFourDigits || null,
         description: editForm.description || null,
+        // Credit card specific fields
+        billingCycleDay: isCreditCard 
+          ? (editForm.billingCycleDay ? parseInt(editForm.billingCycleDay) : null) 
+          : undefined,
+        paymentDueDay: isCreditCard 
+          ? (editForm.paymentDueDay ? parseInt(editForm.paymentDueDay) : null) 
+          : undefined,
+        utilizationAlertEnabled: isCreditCard ? editForm.utilizationAlertEnabled : undefined,
+        utilizationAlertPercent: isCreditCard ? editForm.utilizationAlertPercent : undefined,
       });
       setEditingAccount(null);
     } catch (error) {
@@ -493,6 +523,77 @@ export default function AccountsPage() {
                 }
                 placeholder="e.g. 15000"
               />
+              
+              {/* Credit Card Due Date Settings */}
+              <div className="grid grid-cols-2 gap-4">
+                <Input
+                  label="Billing Cycle Day"
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={createForm.billingCycleDay}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, billingCycleDay: e.target.value })
+                  }
+                  placeholder="e.g. 15"
+                />
+                <Input
+                  label="Payment Due Day"
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={createForm.paymentDueDay}
+                  onChange={(e) =>
+                    setCreateForm({ ...createForm, paymentDueDay: e.target.value })
+                  }
+                  placeholder="e.g. 5"
+                />
+              </div>
+              <p className="text-xs text-muted">
+                Set the day of month for billing cycle end and payment due date to receive reminders.
+              </p>
+
+              {/* Utilization Alert Settings */}
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-white">Utilization Alerts</p>
+                    <p className="text-xs text-muted">
+                      Get warned when credit usage exceeds threshold
+                    </p>
+                  </div>
+                  <label className="relative inline-flex cursor-pointer items-center">
+                    <input
+                      type="checkbox"
+                      checked={createForm.utilizationAlertEnabled}
+                      onChange={(e) =>
+                        setCreateForm({ ...createForm, utilizationAlertEnabled: e.target.checked })
+                      }
+                      className="peer sr-only"
+                    />
+                    <div className="peer h-6 w-11 rounded-full bg-zinc-700 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-violet-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
+                  </label>
+                </div>
+                {createForm.utilizationAlertEnabled && (
+                  <div className="mt-3">
+                    <label className="text-sm text-muted">Alert threshold: {createForm.utilizationAlertPercent}%</label>
+                    <input
+                      type="range"
+                      min={10}
+                      max={90}
+                      step={5}
+                      value={createForm.utilizationAlertPercent}
+                      onChange={(e) =>
+                        setCreateForm({ ...createForm, utilizationAlertPercent: parseInt(e.target.value) })
+                      }
+                      className="mt-1 h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-700"
+                    />
+                    <p className="mt-1 text-xs text-muted">
+                      Recommended: 30% (affects credit score above this)
+                    </p>
+                  </div>
+                )}
+              </div>
             </>
           ) : (
             <Input
@@ -622,6 +723,77 @@ export default function AccountsPage() {
                       This limit is only used if the card is removed from the shared limit group.
                     </p>
                   )}
+
+                  {/* Credit Card Due Date Settings */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <Input
+                      label="Billing Cycle Day"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={editForm.billingCycleDay}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, billingCycleDay: e.target.value })
+                      }
+                      placeholder="e.g. 15"
+                    />
+                    <Input
+                      label="Payment Due Day"
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={editForm.paymentDueDay}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, paymentDueDay: e.target.value })
+                      }
+                      placeholder="e.g. 5"
+                    />
+                  </div>
+                  <p className="text-xs text-muted">
+                    Set for billing cycle end and payment due date reminders.
+                  </p>
+
+                  {/* Utilization Alert Settings */}
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-white">Utilization Alerts</p>
+                        <p className="text-xs text-muted">
+                          Get warned when credit usage exceeds threshold
+                        </p>
+                      </div>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input
+                          type="checkbox"
+                          checked={editForm.utilizationAlertEnabled}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, utilizationAlertEnabled: e.target.checked })
+                          }
+                          className="peer sr-only"
+                        />
+                        <div className="peer h-6 w-11 rounded-full bg-zinc-700 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-violet-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none"></div>
+                      </label>
+                    </div>
+                    {editForm.utilizationAlertEnabled && (
+                      <div className="mt-3">
+                        <label className="text-sm text-muted">Alert threshold: {editForm.utilizationAlertPercent}%</label>
+                        <input
+                          type="range"
+                          min={10}
+                          max={90}
+                          step={5}
+                          value={editForm.utilizationAlertPercent}
+                          onChange={(e) =>
+                            setEditForm({ ...editForm, utilizationAlertPercent: parseInt(e.target.value) })
+                          }
+                          className="mt-1 h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-700"
+                        />
+                        <p className="mt-1 text-xs text-muted">
+                          Recommended: 30% (affects credit score above this)
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
 
