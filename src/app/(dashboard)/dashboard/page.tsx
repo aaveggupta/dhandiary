@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import { Card, Skeleton } from '@/components/ui';
+import { CreditCardAlerts } from '@/components/shared';
 import { useDashboardAnalytics, useSettings } from '@/hooks';
 import { formatCurrency } from '@/lib/utils';
 import { TRANSACTION_TYPES } from '@/lib/constants';
@@ -256,6 +257,9 @@ export default function DashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* CREDIT CARD INSIGHTS */}
+      <CreditCardAlerts currency={currency} />
 
       {/* RECENT TRANSACTIONS TABLE */}
       <div>
