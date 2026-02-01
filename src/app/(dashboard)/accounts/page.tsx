@@ -9,6 +9,7 @@ import {
   SharedCreditLimitModal,
   LinkCardModal,
   SharedLimitGroup,
+  BankSelect,
 } from '@/components/shared';
 import {
   useAccounts,
@@ -484,12 +485,16 @@ export default function AccountsPage() {
 
           {showBankFields && (
             <>
-              <Input
-                label={isCreditType ? 'Card Issuer / Bank' : 'Bank Name'}
-                value={createForm.bankName}
-                onChange={(e) => setCreateForm({ ...createForm, bankName: e.target.value })}
-                placeholder={isCreditType ? 'e.g. HDFC, ICICI, Amex' : 'e.g. HDFC Bank, SBI'}
-              />
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-300">
+                  {isCreditType ? 'Card Issuer / Bank' : 'Bank Name'}
+                </label>
+                <BankSelect
+                  value={createForm.bankName}
+                  onChange={(value) => setCreateForm({ ...createForm, bankName: value })}
+                  placeholder={isCreditType ? 'Select card issuer...' : 'Select bank...'}
+                />
+              </div>
               <Input
                 label={isCreditType ? 'Last 4 Digits of Card' : 'Last 4 Digits of Account'}
                 value={createForm.lastFourDigits}
@@ -643,15 +648,18 @@ export default function AccountsPage() {
               {(editingAccount.type === ACCOUNT_TYPES.BANK ||
                 editingAccount.type === ACCOUNT_TYPES.CREDIT) && (
                 <>
-                  <Input
-                    label={
-                      editingAccount.type === ACCOUNT_TYPES.CREDIT
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-300">
+                      {editingAccount.type === ACCOUNT_TYPES.CREDIT
                         ? 'Card Issuer / Bank'
-                        : 'Bank Name'
-                    }
-                    value={editForm.bankName}
-                    onChange={(e) => setEditForm({ ...editForm, bankName: e.target.value })}
-                  />
+                        : 'Bank Name'}
+                    </label>
+                    <BankSelect
+                      value={editForm.bankName}
+                      onChange={(value) => setEditForm({ ...editForm, bankName: value })}
+                      placeholder="Select bank..."
+                    />
+                  </div>
                   <Input
                     label={
                       editingAccount.type === ACCOUNT_TYPES.CREDIT

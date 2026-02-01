@@ -5,3 +5,4 @@ export * from './use-settings';
 export * from './use-analytics';
 export * from './use-onboarding';
 export * from './use-shared-credit-limits';
+export * from './use-banks';
