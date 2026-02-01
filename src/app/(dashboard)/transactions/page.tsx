@@ -11,6 +11,11 @@ import {
   Pencil,
   X,
   AlertCircle,
+  Filter,
+  Calendar,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
 } from 'lucide-react';
 import { Card, Button, Spinner, Input, Select } from '@/components/ui';
 import {
@@ -26,7 +31,6 @@ import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
 import type { Transaction, TransactionType } from '@/types';
 import Link from 'next/link';
 
-// Edit form state type (with number instead of Decimal)
 interface EditFormState {
   id: string;
   amount: number;
@@ -35,6 +39,23 @@ interface EditFormState {
   accountId: string;
   note: string | null;
 }
+
+// Category icons mapping
+const categoryIcons: Record<string, string> = {
+  'Bills & Utilities': '🏠',
+  'Education': '📚',
+  'Entertainment': '🎬',
+  'Food & Dining': '🍔',
+  'Healthcare': '🏥',
+  'Other': '📦',
+  'Shopping': '🛍️',
+  'Transportation': '🚗',
+  'Freelance': '💼',
+  'Gift': '🎁',
+  'Investment': '📈',
+  'Other Income': '💰',
+  'Salary': '💵',
+};
 
 function TransactionsContent() {
   const searchParams = useSearchParams();
@@ -61,8 +82,15 @@ function TransactionsContent() {
   const currency = settings?.currency || 'USD';
   const transactions = transactionsData?.data || [];
 
-  // Get the account name if filtering by account
   const filteredAccount = accountFilter ? accounts?.find((a) => a.id === accountFilter) : null;
+
+  // Calculate totals
+  const totalIncome = transactions
+    .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalExpense = transactions
+    .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const handleDelete = async (id: string) => {
     try {
@@ -73,18 +101,15 @@ function TransactionsContent() {
     }
   };
 
-  // Get available funds for validation
   const getAvailableFundsForEdit = () => {
     if (!editingTransaction) return null;
     const account = accounts?.find((a) => a.id === editingTransaction.accountId);
     if (!account) return null;
 
-    // When editing, we need to add back the original transaction's effect first
     const originalTransaction = transactions.find((t) => t.id === editingTransaction.id);
     let adjustedBalance = Number(account.balance);
 
     if (originalTransaction) {
-      // Reverse the original transaction's effect
       if (originalTransaction.type === TRANSACTION_TYPES.EXPENSE) {
         adjustedBalance += Number(originalTransaction.amount);
       } else if (originalTransaction.type === TRANSACTION_TYPES.INCOME) {
@@ -101,13 +126,9 @@ function TransactionsContent() {
 
   const validateEdit = (): string | null => {
     if (!editingTransaction) return 'No transaction selected';
-
     const amount = Number(editingTransaction.amount);
-    if (isNaN(amount) || amount <= 0) {
-      return 'Amount must be a positive number';
-    }
+    if (isNaN(amount) || amount <= 0) return 'Amount must be a positive number';
 
-    // Check available funds for expenses
     if (editingTransaction.type === TRANSACTION_TYPES.EXPENSE) {
       const available = getAvailableFundsForEdit();
       if (available !== null && amount > available) {
@@ -116,13 +137,11 @@ function TransactionsContent() {
         return `Insufficient ${isCredit ? 'credit' : 'balance'}. Available: ${formatCurrency(available, currency)}`;
       }
     }
-
     return null;
   };
 
   const handleUpdate = async () => {
     if (!editingTransaction) return;
-
     const validationError = validateEdit();
     if (validationError) {
       setEditError(validationError);
@@ -140,7 +159,6 @@ function TransactionsContent() {
       setEditingTransaction(null);
       setEditError(null);
     } catch (error) {
-      console.error('Error updating transaction:', error);
       if (error instanceof Error) {
         setEditError(error.message);
       } else {
@@ -149,195 +167,251 @@ function TransactionsContent() {
     }
   };
 
+  // Group transactions by date
+  const groupedTransactions = transactions.reduce((groups: Record<string, typeof transactions>, transaction) => {
+    const date = new Date(transaction.date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    if (!groups[date]) {
+      groups[date] = [];
+    }
+    groups[date].push(transaction);
+    return groups;
+  }, {});
+
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Spinner className="h-8 w-8" />
+        <div className="text-center">
+          <Spinner className="mx-auto h-10 w-10" />
+          <p className="mt-4 text-sm text-muted">Loading transactions...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 md:pb-0">
-      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
           {filteredAccount ? (
-            <p className="text-sm text-muted">
-              Showing transactions for <span className="text-primary">{filteredAccount.name}</span>
+            <p className="mt-1 text-sm text-muted">
+              Showing transactions for <span className="font-semibold text-primary">{filteredAccount.name}</span>
               <button
                 onClick={() => setAccountFilter(undefined)}
-                className="ml-2 text-xs text-red-400 hover:underline"
+                className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/20"
               >
-                Clear filter
+                Clear
               </button>
             </p>
           ) : (
-            <p className="text-sm text-muted">Manage and track your history.</p>
+            <p className="mt-1 text-sm text-muted">Track and manage all your transactions</p>
           )}
         </div>
         <Link href="/transactions/add">
-          <Button icon={<Plus size={16} />}>Add Transaction</Button>
+          <Button className="group bg-gradient-to-r from-primary to-secondary shadow-lg shadow-primary/25 hover:shadow-primary/40">
+            <Plus size={18} className="mr-2 transition-transform group-hover:rotate-90" />
+            Add Transaction
+          </Button>
         </Link>
       </div>
 
-      {/* FILTERS */}
-      <div className="flex flex-col gap-3 md:flex-row">
-        {/* SEARCH BAR */}
-        <Card className="flex flex-1 items-center gap-2 p-2" variant="default">
-          <Search size={20} className="ml-2 text-muted" />
+      {/* Stats Cards */}
+      {transactions.length > 0 && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
+              <TrendingUp size={14} className="text-emerald-400" /> Income
+            </div>
+            <p className="text-2xl font-bold text-emerald-400">+{formatCurrency(totalIncome, currency)}</p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
+              <TrendingDown size={14} className="text-red-400" /> Expenses
+            </div>
+            <p className="text-2xl font-bold text-red-400">-{formatCurrency(totalExpense, currency)}</p>
+          </div>
+          <div className="col-span-2 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 sm:col-span-1">
+            <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
+              <Sparkles size={14} className="text-primary" /> Net
+            </div>
+            <p className={`text-2xl font-bold ${totalIncome - totalExpense >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              {totalIncome - totalExpense >= 0 ? '+' : ''}{formatCurrency(totalIncome - totalExpense, currency)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        {/* Search */}
+        <div className="relative flex-1">
+          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
           <input
-            className="w-full bg-transparent py-2 text-sm text-text placeholder-zinc-600 focus:outline-none"
-            placeholder="Search by note or category..."
+            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-sm placeholder-white/40 transition-all focus:border-primary/50 focus:bg-primary/5 focus:outline-none"
+            placeholder="Search transactions..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-        </Card>
-
-        {/* TYPE FILTER */}
-        <div className="flex gap-2">
-          <Button
-            variant={typeFilter === undefined ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => setTypeFilter(undefined)}
-          >
-            All
-          </Button>
-          <Button
-            variant={typeFilter === TRANSACTION_TYPES.INCOME ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => setTypeFilter(TRANSACTION_TYPES.INCOME)}
-          >
-            Income
-          </Button>
-          <Button
-            variant={typeFilter === TRANSACTION_TYPES.EXPENSE ? 'primary' : 'ghost'}
-            size="sm"
-            onClick={() => setTypeFilter(TRANSACTION_TYPES.EXPENSE)}
-          >
-            Expenses
-          </Button>
         </div>
 
-        {/* ACCOUNT FILTER */}
+        {/* Type Filter Pills */}
+        <div className="flex gap-2">
+          {[
+            { value: undefined, label: 'All', icon: null },
+            { value: TRANSACTION_TYPES.INCOME, label: 'Income', icon: <ArrowDownRight size={14} /> },
+            { value: TRANSACTION_TYPES.EXPENSE, label: 'Expense', icon: <ArrowUpRight size={14} /> },
+          ].map((filter) => (
+            <button
+              key={filter.label}
+              onClick={() => setTypeFilter(filter.value)}
+              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                typeFilter === filter.value
+                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                  : 'bg-white/5 text-muted hover:bg-white/10 hover:text-text'
+              }`}
+            >
+              {filter.icon}
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Account Filter */}
         {accounts && accounts.length > 0 && (
           <select
             value={accountFilter || ''}
             onChange={(e) => setAccountFilter(e.target.value || undefined)}
-            className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:outline-none"
+            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-text focus:border-primary focus:outline-none"
           >
             <option value="">All Accounts</option>
             {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name}
-              </option>
+              <option key={acc.id} value={acc.id}>{acc.name}</option>
             ))}
           </select>
         )}
       </div>
 
-      {/* TRANSACTIONS LIST */}
-      <div className="space-y-4">
+      {/* Transactions List - Grouped by Date */}
+      <div className="space-y-6">
         {transactions.length === 0 ? (
-          <Card className="flex flex-col items-center justify-center border-dashed py-20">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-zinc-800 text-zinc-600">
-              <Search size={32} />
+          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/5 py-20">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
+              <Search size={40} className="text-muted" />
             </div>
-            <p className="mb-4 font-medium text-muted">No transactions found</p>
+            <p className="mb-2 text-lg font-semibold">No transactions found</p>
+            <p className="mb-6 text-sm text-muted">Start tracking your money by adding your first transaction</p>
             <Link href="/transactions/add">
-              <Button size="sm">Add your first transaction</Button>
+              <Button className="bg-gradient-to-r from-primary to-secondary">
+                <Plus size={18} className="mr-2" /> Add Transaction
+              </Button>
             </Link>
-          </Card>
+          </div>
         ) : (
-          <div className="grid gap-3">
-            {transactions.map((t) => (
-              <Card
-                key={t.id}
-                variant="default"
-                className="group flex items-center justify-between p-4 transition-colors hover:bg-surfaceHighlight"
-              >
-                <div className="flex items-center gap-4">
+          Object.entries(groupedTransactions).map(([date, dateTransactions]) => (
+            <div key={date}>
+              <div className="mb-3 flex items-center gap-3">
+                <Calendar size={14} className="text-muted" />
+                <h3 className="text-sm font-semibold text-muted">{date}</h3>
+                <div className="h-px flex-1 bg-white/10" />
+              </div>
+              <div className="space-y-2">
+                {dateTransactions.map((t) => (
                   <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl border border-white/5 transition-colors ${
-                      t.type === TRANSACTION_TYPES.INCOME
-                        ? 'bg-emerald-500/5 text-emerald-500 group-hover:bg-emerald-500/10'
-                        : 'bg-red-500/5 text-red-500 group-hover:bg-red-500/10'
-                    }`}
+                    key={t.id}
+                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all hover:border-white/20 hover:bg-white/10"
                   >
-                    {t.type === TRANSACTION_TYPES.INCOME ? (
-                      <ArrowDownRight size={20} />
-                    ) : (
-                      <ArrowUpRight size={20} />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-base font-semibold">{t.category?.name || 'Uncategorized'}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted">
-                      <span>{formatRelativeDate(t.date)}</span>
-                      <span>•</span>
-                      <span>{t.account?.name || 'Unknown Account'}</span>
-                      {t.note && (
-                        <>
-                          <span>•</span>
-                          <span className="max-w-[150px] truncate">{t.note}</span>
-                        </>
-                      )}
+                    <div className="flex items-center gap-4">
+                      {/* Category Icon */}
+                      <div
+                        className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-2xl transition-transform group-hover:scale-110 ${
+                          t.type === TRANSACTION_TYPES.INCOME
+                            ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20'
+                            : 'bg-gradient-to-br from-red-500/20 to-orange-500/20'
+                        }`}
+                      >
+                        {categoryIcons[t.category?.name || ''] || (
+                          t.type === TRANSACTION_TYPES.INCOME ? (
+                            <ArrowDownRight className="text-emerald-400" />
+                          ) : (
+                            <ArrowUpRight className="text-red-400" />
+                          )
+                        )}
+                      </div>
+
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold">{t.category?.name || 'Uncategorized'}</p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+                          <span className="rounded-full bg-white/10 px-2 py-0.5">{t.account?.name}</span>
+                          {t.note && <span className="truncate max-w-[200px]">{t.note}</span>}
+                        </div>
+                      </div>
+
+                      {/* Amount */}
+                      <div className="text-right">
+                        <p
+                          className={`text-xl font-bold ${
+                            t.type === TRANSACTION_TYPES.INCOME ? 'text-emerald-400' : 'text-white'
+                          }`}
+                        >
+                          {t.type === TRANSACTION_TYPES.INCOME ? '+' : '-'}
+                          {formatCurrency(Number(t.amount), currency)}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-1 opacity-0 transition-all group-hover:opacity-100">
+                        <button
+                          onClick={() =>
+                            setEditingTransaction({
+                              id: t.id,
+                              amount: Number(t.amount),
+                              type: t.type,
+                              categoryId: t.categoryId,
+                              accountId: t.accountId,
+                              note: t.note,
+                            })
+                          }
+                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-muted transition-all hover:bg-primary/20 hover:text-primary"
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(t.id)}
+                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-muted transition-all hover:bg-red-500/20 hover:text-red-400"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`block font-mono text-lg font-bold ${t.type === TRANSACTION_TYPES.INCOME ? 'text-emerald-400' : 'text-text'}`}
-                  >
-                    {t.type === TRANSACTION_TYPES.INCOME ? '+' : '-'}
-                    {formatCurrency(Number(t.amount), currency)}
-                  </span>
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      onClick={() =>
-                        setEditingTransaction({
-                          id: t.id,
-                          amount: Number(t.amount),
-                          type: t.type,
-                          categoryId: t.categoryId,
-                          accountId: t.accountId,
-                          note: t.note,
-                        })
-                      }
-                      className="rounded-lg bg-surfaceHighlight p-2 text-muted transition-colors hover:bg-primary/20 hover:text-primary"
-                      title="Edit"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => setDeleteConfirm(t.id)}
-                      className="rounded-lg bg-surfaceHighlight p-2 text-muted transition-colors hover:bg-red-500/20 hover:text-red-400"
-                      title="Delete"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      {/* Edit Transaction Modal */}
+      {/* Edit Modal */}
       {editingTransaction && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md space-y-6 p-6">
-            <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md animate-scale-in rounded-3xl border border-white/10 bg-surface p-6">
+            <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold">Edit Transaction</h2>
               <button
                 onClick={() => {
                   setEditingTransaction(null);
                   setEditError(null);
                 }}
-                className="text-muted hover:text-text"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-muted hover:text-text"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             </div>
 
@@ -355,14 +429,10 @@ function TransactionsContent() {
                 }}
               />
 
-              {/* Show available balance when editing expense */}
               {editingTransaction.type === TRANSACTION_TYPES.EXPENSE && (
-                <div className="text-sm text-muted">
-                  Available:{' '}
-                  <span className="font-semibold text-text">
-                    {formatCurrency(getAvailableFundsForEdit() || 0, currency)}
-                  </span>
-                </div>
+                <p className="text-sm text-muted">
+                  Available: <span className="font-semibold text-text">{formatCurrency(getAvailableFundsForEdit() || 0, currency)}</span>
+                </p>
               )}
 
               <Select
@@ -373,7 +443,7 @@ function TransactionsContent() {
                   setEditingTransaction({
                     ...editingTransaction,
                     type: e.target.value as TransactionType,
-                    categoryId: null, // Reset category when type changes
+                    categoryId: null,
                   });
                 }}
                 options={[
@@ -393,12 +463,10 @@ function TransactionsContent() {
                 }
                 options={[
                   { value: '', label: 'Uncategorized' },
-                  ...(categories
-                    ?.filter((c) => c.type === editingTransaction.type)
-                    .map((c) => ({
-                      value: c.id,
-                      label: c.name,
-                    })) || []),
+                  ...(categories?.filter((c) => c.type === editingTransaction.type).map((c) => ({
+                    value: c.id,
+                    label: c.name,
+                  })) || []),
                 ]}
               />
 
@@ -414,15 +482,14 @@ function TransactionsContent() {
               />
             </div>
 
-            {/* Validation Error */}
             {editError && (
-              <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
-                <AlertCircle size={16} className="flex-shrink-0" />
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                <AlertCircle size={16} />
                 <span>{editError}</span>
               </div>
             )}
 
-            <div className="flex gap-3">
+            <div className="mt-6 flex gap-3">
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -436,29 +503,26 @@ function TransactionsContent() {
               <Button
                 onClick={handleUpdate}
                 disabled={updateTransaction.isPending || Number(editingTransaction.amount) <= 0}
-                className="flex-1"
+                className="flex-1 bg-gradient-to-r from-primary to-secondary"
               >
                 {updateTransaction.isPending ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-sm space-y-6 p-6">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
-                <Trash2 size={32} className="text-red-500" />
-              </div>
-              <h2 className="mb-2 text-xl font-bold">Delete Transaction?</h2>
-              <p className="text-sm text-muted">
-                This will permanently delete this transaction and update your account balance.
-              </p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm animate-scale-in rounded-3xl border border-white/10 bg-surface p-6 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+              <Trash2 size={32} className="text-red-500" />
             </div>
-
+            <h2 className="mb-2 text-xl font-bold">Delete Transaction?</h2>
+            <p className="mb-6 text-sm text-muted">
+              This will permanently delete this transaction and update your account balance.
+            </p>
             <div className="flex gap-3">
               <Button variant="ghost" onClick={() => setDeleteConfirm(null)} className="flex-1">
                 Cancel
@@ -472,9 +536,19 @@ function TransactionsContent() {
                 {deleteTransaction.isPending ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
-          </Card>
+          </div>
         </div>
       )}
+
+      <style jsx global>{`
+        @keyframes scale-in {
+          0% { transform: scale(0.95); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-scale-in {
+          animation: scale-in 0.2s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }
