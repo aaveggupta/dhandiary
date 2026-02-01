@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { ACCOUNT_TYPES } from '@/lib/constants';
+import { getCreditCardStatus, toNumber, roundMoney, getUtilizationColor } from '@/lib/finance';
 
 export interface CreditCardInsight {
   id: string;
@@ -50,21 +51,25 @@ export async function GET() {
     const insights: CreditCardInsight[] = creditCards.map((card) => {
       // For credit cards, balance is typically negative (representing debt)
       // We'll treat the absolute value as the amount owed
-      const currentBalance = Math.abs(Number(card.balance));
-      
       // Use shared limit if available, otherwise individual limit
       const creditLimit = card.sharedCreditLimit 
-        ? Number(card.sharedCreditLimit.totalLimit)
-        : Number(card.creditLimit) || 0;
+        ? toNumber(card.sharedCreditLimit.totalLimit)
+        : toNumber(card.creditLimit) || 0;
       
-      const availableCredit = Math.max(0, creditLimit - currentBalance);
-      const utilizationPercent = creditLimit > 0 
-        ? Math.round((currentBalance / creditLimit) * 100) 
-        : 0;
+      // Use getCreditCardStatus for consistent calculations
+      const cardStatus = getCreditCardStatus({
+        balance: toNumber(card.balance),
+        creditLimit,
+      });
+      
+      const currentBalance = cardStatus.outstanding;
+      const availableCredit = cardStatus.availableCredit;
+      const utilizationPercent = cardStatus.utilization;
 
-      // Determine utilization status
+      // Determine utilization status using finance utility
+      const utilizationColor = getUtilizationColor(utilizationPercent);
       let utilizationStatus: 'good' | 'warning' | 'danger' = 'good';
-      if (utilizationPercent >= 75) {
+      if (utilizationColor === 'red' || utilizationPercent >= 75) {
         utilizationStatus = 'danger';
       } else if (utilizationPercent >= (card.utilizationAlertPercent || 30)) {
         utilizationStatus = 'warning';
@@ -102,10 +107,10 @@ export async function GET() {
       };
     });
 
-    // Summary stats
-    const totalCreditLimit = insights.reduce((sum, card) => sum + card.creditLimit, 0);
-    const totalBalance = insights.reduce((sum, card) => sum + card.currentBalance, 0);
-    const totalAvailable = insights.reduce((sum, card) => sum + card.availableCredit, 0);
+    // Summary stats using roundMoney for consistency
+    const totalCreditLimit = roundMoney(insights.reduce((sum, card) => sum + card.creditLimit, 0));
+    const totalBalance = roundMoney(insights.reduce((sum, card) => sum + card.currentBalance, 0));
+    const totalAvailable = roundMoney(insights.reduce((sum, card) => sum + card.availableCredit, 0));
     const overallUtilization = totalCreditLimit > 0 
       ? Math.round((totalBalance / totalCreditLimit) * 100) 
       : 0;

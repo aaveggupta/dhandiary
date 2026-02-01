@@ -2,7 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { updateSharedCreditLimitSchema } from '@/lib/validations';
-import { calculateSharedLimitStats } from '@/lib/credit-utils';
+import { calculateSharedLimitStats } from '@/lib/finance';
 import { ZodError } from 'zod';
 
 interface RouteParams {

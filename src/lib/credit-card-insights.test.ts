@@ -392,9 +392,23 @@ describe('stress tests - bulk calculations', () => {
       { type: ACCOUNT_TYPES.CREDIT, balance: finalCreditBalance },
     ]);
 
-    // Credit balance should be negative (debt), so liabilities should be positive
-    const expectedLiabilities = finalCreditBalance < 0 ? Math.abs(finalCreditBalance) : 0;
-    const expectedAssets = finalBankBalance > 0 ? finalBankBalance : 0;
+    // Calculate expected values matching calculateNetWorth logic:
+    // - Bank: positive = asset, negative = liability (overdraft)
+    // - Credit: positive = asset (refund/credit), negative = liability (debt)
+    let expectedAssets = 0;
+    let expectedLiabilities = 0;
+    
+    if (finalBankBalance >= 0) {
+      expectedAssets += finalBankBalance;
+    } else {
+      expectedLiabilities += Math.abs(finalBankBalance);
+    }
+    
+    if (finalCreditBalance >= 0) {
+      expectedAssets += finalCreditBalance;
+    } else {
+      expectedLiabilities += Math.abs(finalCreditBalance);
+    }
 
     expect(roundMoney(netWorth.totalAssets)).toBe(roundMoney(expectedAssets));
     expect(roundMoney(netWorth.totalLiabilities)).toBe(roundMoney(expectedLiabilities));

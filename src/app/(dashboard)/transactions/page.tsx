@@ -28,6 +28,7 @@ import {
 } from '@/hooks';
 import { formatCurrency, formatRelativeDate } from '@/lib/utils';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
+import { getCreditCardStatus, toNumber, roundMoney } from '@/lib/finance';
 import type { Transaction, TransactionType } from '@/types';
 import Link from 'next/link';
 
@@ -84,13 +85,17 @@ function TransactionsContent() {
 
   const filteredAccount = accountFilter ? accounts?.find((a) => a.id === accountFilter) : null;
 
-  // Calculate totals
-  const totalIncome = transactions
-    .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalExpense = transactions
-    .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+  // Calculate totals using toNumber for consistency
+  const totalIncome = roundMoney(
+    transactions
+      .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
+      .reduce((sum, t) => sum + toNumber(t.amount), 0)
+  );
+  const totalExpense = roundMoney(
+    transactions
+      .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
+      .reduce((sum, t) => sum + toNumber(t.amount), 0)
+  );
 
   const handleDelete = async (id: string) => {
     try {
@@ -107,26 +112,31 @@ function TransactionsContent() {
     if (!account) return null;
 
     const originalTransaction = transactions.find((t) => t.id === editingTransaction.id);
-    let adjustedBalance = Number(account.balance);
+    let adjustedBalance = toNumber(account.balance);
 
+    // Reverse the original transaction's effect to get pre-transaction balance
     if (originalTransaction) {
       if (originalTransaction.type === TRANSACTION_TYPES.EXPENSE) {
-        adjustedBalance += Number(originalTransaction.amount);
+        adjustedBalance += toNumber(originalTransaction.amount);
       } else if (originalTransaction.type === TRANSACTION_TYPES.INCOME) {
-        adjustedBalance -= Number(originalTransaction.amount);
+        adjustedBalance -= toNumber(originalTransaction.amount);
       }
     }
 
     if (account.type === ACCOUNT_TYPES.CREDIT) {
-      const currentDebt = Math.abs(adjustedBalance);
-      return (Number(account.creditLimit) || 0) - currentDebt;
+      // Use getCreditCardStatus for single source of truth
+      const cardStatus = getCreditCardStatus({
+        balance: adjustedBalance,
+        creditLimit: toNumber(account.creditLimit),
+      });
+      return cardStatus.availableCredit;
     }
     return adjustedBalance;
   };
 
   const validateEdit = (): string | null => {
     if (!editingTransaction) return 'No transaction selected';
-    const amount = Number(editingTransaction.amount);
+    const amount = toNumber(editingTransaction.amount);
     if (isNaN(amount) || amount <= 0) return 'Amount must be a positive number';
 
     if (editingTransaction.type === TRANSACTION_TYPES.EXPENSE) {
@@ -151,7 +161,7 @@ function TransactionsContent() {
     try {
       await updateTransaction.mutateAsync({
         id: editingTransaction.id,
-        amount: Number(editingTransaction.amount),
+        amount: toNumber(editingTransaction.amount),
         type: editingTransaction.type,
         categoryId: editingTransaction.categoryId || undefined,
         note: editingTransaction.note || undefined,
@@ -361,7 +371,7 @@ function TransactionsContent() {
                           }`}
                         >
                           {t.type === TRANSACTION_TYPES.INCOME ? '+' : '-'}
-                          {formatCurrency(Number(t.amount), currency)}
+                          {formatCurrency(toNumber(t.amount), currency)}
                         </p>
                       </div>
 
@@ -371,7 +381,7 @@ function TransactionsContent() {
                           onClick={() =>
                             setEditingTransaction({
                               id: t.id,
-                              amount: Number(t.amount),
+                              amount: toNumber(t.amount),
                               type: t.type,
                               categoryId: t.categoryId,
                               accountId: t.accountId,
@@ -502,7 +512,7 @@ function TransactionsContent() {
               </Button>
               <Button
                 onClick={handleUpdate}
-                disabled={updateTransaction.isPending || Number(editingTransaction.amount) <= 0}
+                disabled={updateTransaction.isPending || toNumber(editingTransaction.amount) <= 0}
                 className="flex-1 bg-gradient-to-r from-primary to-secondary"
               >
                 {updateTransaction.isPending ? 'Saving...' : 'Save Changes'}

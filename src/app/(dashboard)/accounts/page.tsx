@@ -25,7 +25,8 @@ import {
   useUnlinkAccountFromSharedLimit,
 } from '@/hooks';
 import { formatCurrency } from '@/lib/utils';
-import { ACCOUNT_TYPES, getAccountTypeOptions, isLiabilityAccount } from '@/lib/constants';
+import { ACCOUNT_TYPES, getAccountTypeOptions } from '@/lib/constants';
+import { calculateNetWorth, toNumber } from '@/lib/finance';
 import { Plus, Link2 } from 'lucide-react';
 import type { Account, AccountType, SharedCreditLimitWithStats } from '@/types';
 
@@ -125,24 +126,17 @@ export default function AccountsPage() {
     return { accountsBySharedLimit: bySharedLimit, standaloneAccounts: standalone };
   }, [accounts]);
 
-  // Calculate totals (convert Decimal to number)
-  const totalAssets =
-    accounts?.reduce((acc, curr) => {
-      if (!isLiabilityAccount(curr.type)) {
-        return acc + Number(curr.balance);
-      }
-      return acc;
-    }, 0) || 0;
+  // Calculate totals using single source of truth
+  const netWorthResult = useMemo(() => {
+    if (!accounts || accounts.length === 0) {
+      return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 };
+    }
+    return calculateNetWorth(
+      accounts.map(acc => ({ type: acc.type, balance: toNumber(acc.balance) }))
+    );
+  }, [accounts]);
 
-  const totalLiabilities =
-    accounts?.reduce((acc, curr) => {
-      if (isLiabilityAccount(curr.type)) {
-        return acc + Math.abs(Number(curr.balance));
-      }
-      return acc;
-    }, 0) || 0;
-
-  const netWorth = totalAssets - totalLiabilities;
+  const { totalAssets, totalLiabilities, netWorth } = netWorthResult;
 
   // Modal handlers - Accounts
   const openCreateModal = () => {

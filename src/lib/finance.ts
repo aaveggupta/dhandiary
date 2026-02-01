@@ -21,9 +21,9 @@ import type { AccountType, TransactionType } from '@/types';
 
 export interface CreditCardBalance {
   /** Raw balance (negative = owes money, positive = has credit) */
-  balance: number;
+  balance: NumberLike;
   /** Credit limit for the card */
-  creditLimit: number;
+  creditLimit: NumberLike;
 }
 
 export interface CreditCardStatus {
@@ -39,10 +39,13 @@ export interface CreditCardStatus {
   utilization: number;
 }
 
+/** Type that accepts number, Prisma Decimal-like objects, null, or undefined */
+type NumberLike = number | { toNumber: () => number } | null | undefined;
+
 export interface SharedLimitAccount {
   id: string;
   name: string;
-  balance: number;
+  balance: NumberLike;
   bankName?: string | null;
   lastFourDigits?: string | null;
 }
