@@ -109,6 +109,7 @@ const BANKS = [
 ];
 
 async function seedBanks() {
+  // eslint-disable-next-line no-console
   console.log('Seeding banks...');
   
   let created = 0;
@@ -133,6 +134,7 @@ async function seedBanks() {
     }
   }
   
+  // eslint-disable-next-line no-console
   console.log(`✓ Banks seeded: ${created} created, ${skipped} already existed`);
 }
 

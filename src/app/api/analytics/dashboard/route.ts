@@ -95,7 +95,7 @@ export async function GET() {
 
     // Calculate net worth using single source of truth
     const netWorthResult = calculateNetWorth(
-      accounts.map(acc => ({ type: acc.type, balance: acc.balance }))
+      accounts.map((acc) => ({ type: acc.type, balance: acc.balance }))
     );
     const netWorth = netWorthResult.netWorth;
 

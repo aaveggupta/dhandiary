@@ -133,7 +133,7 @@ export default function AccountsPage() {
       return { totalAssets: 0, totalLiabilities: 0, netWorth: 0 };
     }
     return calculateNetWorth(
-      accounts.map(acc => ({ type: acc.type, balance: toNumber(acc.balance) }))
+      accounts.map((acc) => ({ type: acc.type, balance: toNumber(acc.balance) }))
     );
   }, [accounts]);
 
@@ -208,12 +208,12 @@ export default function AccountsPage() {
         lastFourDigits: createForm.lastFourDigits || undefined,
         description: createForm.description || undefined,
         // Credit card specific fields
-        billingCycleDay: isCreditCard && createForm.billingCycleDay 
-          ? parseInt(createForm.billingCycleDay) 
-          : undefined,
-        paymentDueDay: isCreditCard && createForm.paymentDueDay 
-          ? parseInt(createForm.paymentDueDay) 
-          : undefined,
+        billingCycleDay:
+          isCreditCard && createForm.billingCycleDay
+            ? parseInt(createForm.billingCycleDay)
+            : undefined,
+        paymentDueDay:
+          isCreditCard && createForm.paymentDueDay ? parseInt(createForm.paymentDueDay) : undefined,
         utilizationAlertEnabled: isCreditCard ? createForm.utilizationAlertEnabled : undefined,
         utilizationAlertPercent: isCreditCard ? createForm.utilizationAlertPercent : undefined,
       });
@@ -236,11 +236,15 @@ export default function AccountsPage() {
         lastFourDigits: editForm.lastFourDigits || null,
         description: editForm.description || null,
         // Credit card specific fields
-        billingCycleDay: isCreditCard 
-          ? (editForm.billingCycleDay ? parseInt(editForm.billingCycleDay) : null) 
+        billingCycleDay: isCreditCard
+          ? editForm.billingCycleDay
+            ? parseInt(editForm.billingCycleDay)
+            : null
           : undefined,
-        paymentDueDay: isCreditCard 
-          ? (editForm.paymentDueDay ? parseInt(editForm.paymentDueDay) : null) 
+        paymentDueDay: isCreditCard
+          ? editForm.paymentDueDay
+            ? parseInt(editForm.paymentDueDay)
+            : null
           : undefined,
         utilizationAlertEnabled: isCreditCard ? editForm.utilizationAlertEnabled : undefined,
         utilizationAlertPercent: isCreditCard ? editForm.utilizationAlertPercent : undefined,
@@ -460,7 +464,12 @@ export default function AccountsPage() {
       )}
 
       {/* Create Account Modal */}
-      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Add Account" size="lg">
+      <Modal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        title="Add Account"
+        size="lg"
+      >
         <div className="space-y-4">
           <Input
             label="Account Name"
@@ -528,7 +537,7 @@ export default function AccountsPage() {
                 }
                 placeholder="e.g. 15000"
               />
-              
+
               {/* Credit Card Due Date Settings */}
               <div className="grid grid-cols-2 gap-4">
                 <Input
@@ -548,14 +557,13 @@ export default function AccountsPage() {
                   min={1}
                   max={31}
                   value={createForm.paymentDueDay}
-                  onChange={(e) =>
-                    setCreateForm({ ...createForm, paymentDueDay: e.target.value })
-                  }
+                  onChange={(e) => setCreateForm({ ...createForm, paymentDueDay: e.target.value })}
                   placeholder="e.g. 5"
                 />
               </div>
               <p className="text-xs text-muted">
-                Set the day of month for billing cycle end and payment due date to receive reminders.
+                Set the day of month for billing cycle end and payment due date to receive
+                reminders.
               </p>
 
               {/* Utilization Alert Settings */}
@@ -581,7 +589,9 @@ export default function AccountsPage() {
                 </div>
                 {createForm.utilizationAlertEnabled && (
                   <div className="mt-3">
-                    <label className="text-sm text-muted">Alert threshold: {createForm.utilizationAlertPercent}%</label>
+                    <label className="text-sm text-muted">
+                      Alert threshold: {createForm.utilizationAlertPercent}%
+                    </label>
                     <input
                       type="range"
                       min={10}
@@ -589,7 +599,10 @@ export default function AccountsPage() {
                       step={5}
                       value={createForm.utilizationAlertPercent}
                       onChange={(e) =>
-                        setCreateForm({ ...createForm, utilizationAlertPercent: parseInt(e.target.value) })
+                        setCreateForm({
+                          ...createForm,
+                          utilizationAlertPercent: parseInt(e.target.value),
+                        })
                       }
                       className="mt-1 h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-700"
                     />
@@ -635,7 +648,12 @@ export default function AccountsPage() {
       </Modal>
 
       {/* Edit Account Modal */}
-      <Modal isOpen={!!editingAccount} onClose={() => setEditingAccount(null)} title="Edit Account" size="lg">
+      <Modal
+        isOpen={!!editingAccount}
+        onClose={() => setEditingAccount(null)}
+        title="Edit Account"
+        size="lg"
+      >
         {editingAccount && (
           <>
             <div className="space-y-4">
@@ -751,9 +769,7 @@ export default function AccountsPage() {
                       min={1}
                       max={31}
                       value={editForm.paymentDueDay}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, paymentDueDay: e.target.value })
-                      }
+                      onChange={(e) => setEditForm({ ...editForm, paymentDueDay: e.target.value })}
                       placeholder="e.g. 5"
                     />
                   </div>
@@ -784,7 +800,9 @@ export default function AccountsPage() {
                     </div>
                     {editForm.utilizationAlertEnabled && (
                       <div className="mt-3">
-                        <label className="text-sm text-muted">Alert threshold: {editForm.utilizationAlertPercent}%</label>
+                        <label className="text-sm text-muted">
+                          Alert threshold: {editForm.utilizationAlertPercent}%
+                        </label>
                         <input
                           type="range"
                           min={10}
@@ -792,7 +810,10 @@ export default function AccountsPage() {
                           step={5}
                           value={editForm.utilizationAlertPercent}
                           onChange={(e) =>
-                            setEditForm({ ...editForm, utilizationAlertPercent: parseInt(e.target.value) })
+                            setEditForm({
+                              ...editForm,
+                              utilizationAlertPercent: parseInt(e.target.value),
+                            })
                           }
                           className="mt-1 h-2 w-full cursor-pointer appearance-none rounded-lg bg-zinc-700"
                         />

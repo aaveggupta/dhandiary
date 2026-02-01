@@ -44,18 +44,18 @@ interface EditFormState {
 // Category icons mapping
 const categoryIcons: Record<string, string> = {
   'Bills & Utilities': '🏠',
-  'Education': '📚',
-  'Entertainment': '🎬',
+  Education: '📚',
+  Entertainment: '🎬',
   'Food & Dining': '🍔',
-  'Healthcare': '🏥',
-  'Other': '📦',
-  'Shopping': '🛍️',
-  'Transportation': '🚗',
-  'Freelance': '💼',
-  'Gift': '🎁',
-  'Investment': '📈',
+  Healthcare: '🏥',
+  Other: '📦',
+  Shopping: '🛍️',
+  Transportation: '🚗',
+  Freelance: '💼',
+  Gift: '🎁',
+  Investment: '📈',
   'Other Income': '💰',
-  'Salary': '💵',
+  Salary: '💵',
 };
 
 function TransactionsContent() {
@@ -178,19 +178,22 @@ function TransactionsContent() {
   };
 
   // Group transactions by date
-  const groupedTransactions = transactions.reduce((groups: Record<string, typeof transactions>, transaction) => {
-    const date = new Date(transaction.date).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(transaction);
-    return groups;
-  }, {});
+  const groupedTransactions = transactions.reduce(
+    (groups: Record<string, typeof transactions>, transaction) => {
+      const date = new Date(transaction.date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(transaction);
+      return groups;
+    },
+    {}
+  );
 
   if (isLoading) {
     return (
@@ -211,7 +214,8 @@ function TransactionsContent() {
           <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
           {filteredAccount ? (
             <p className="mt-1 text-sm text-muted">
-              Showing transactions for <span className="font-semibold text-primary">{filteredAccount.name}</span>
+              Showing transactions for{' '}
+              <span className="font-semibold text-primary">{filteredAccount.name}</span>
               <button
                 onClick={() => setAccountFilter(undefined)}
                 className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/20"
@@ -238,20 +242,27 @@ function TransactionsContent() {
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
               <TrendingUp size={14} className="text-emerald-400" /> Income
             </div>
-            <p className="text-2xl font-bold text-emerald-400">+{formatCurrency(totalIncome, currency)}</p>
+            <p className="text-2xl font-bold text-emerald-400">
+              +{formatCurrency(totalIncome, currency)}
+            </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
               <TrendingDown size={14} className="text-red-400" /> Expenses
             </div>
-            <p className="text-2xl font-bold text-red-400">-{formatCurrency(totalExpense, currency)}</p>
+            <p className="text-2xl font-bold text-red-400">
+              -{formatCurrency(totalExpense, currency)}
+            </p>
           </div>
           <div className="col-span-2 rounded-2xl border border-white/10 bg-gradient-to-br from-white/10 to-white/5 p-4 sm:col-span-1">
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted">
               <Sparkles size={14} className="text-primary" /> Net
             </div>
-            <p className={`text-2xl font-bold ${totalIncome - totalExpense >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-              {totalIncome - totalExpense >= 0 ? '+' : ''}{formatCurrency(totalIncome - totalExpense, currency)}
+            <p
+              className={`text-2xl font-bold ${totalIncome - totalExpense >= 0 ? 'text-emerald-400' : 'text-red-400'}`}
+            >
+              {totalIncome - totalExpense >= 0 ? '+' : ''}
+              {formatCurrency(totalIncome - totalExpense, currency)}
             </p>
           </div>
         </div>
@@ -274,8 +285,16 @@ function TransactionsContent() {
         <div className="flex gap-2">
           {[
             { value: undefined, label: 'All', icon: null },
-            { value: TRANSACTION_TYPES.INCOME, label: 'Income', icon: <ArrowDownRight size={14} /> },
-            { value: TRANSACTION_TYPES.EXPENSE, label: 'Expense', icon: <ArrowUpRight size={14} /> },
+            {
+              value: TRANSACTION_TYPES.INCOME,
+              label: 'Income',
+              icon: <ArrowDownRight size={14} />,
+            },
+            {
+              value: TRANSACTION_TYPES.EXPENSE,
+              label: 'Expense',
+              icon: <ArrowUpRight size={14} />,
+            },
           ].map((filter) => (
             <button
               key={filter.label}
@@ -301,7 +320,9 @@ function TransactionsContent() {
           >
             <option value="">All Accounts</option>
             {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>{acc.name}</option>
+              <option key={acc.id} value={acc.id}>
+                {acc.name}
+              </option>
             ))}
           </select>
         )}
@@ -315,7 +336,9 @@ function TransactionsContent() {
               <Search size={40} className="text-muted" />
             </div>
             <p className="mb-2 text-lg font-semibold">No transactions found</p>
-            <p className="mb-6 text-sm text-muted">Start tracking your money by adding your first transaction</p>
+            <p className="mb-6 text-sm text-muted">
+              Start tracking your money by adding your first transaction
+            </p>
             <Link href="/transactions/add">
               <Button className="bg-gradient-to-r from-primary to-secondary">
                 <Plus size={18} className="mr-2" /> Add Transaction
@@ -345,21 +368,22 @@ function TransactionsContent() {
                             : 'bg-gradient-to-br from-red-500/20 to-orange-500/20'
                         }`}
                       >
-                        {categoryIcons[t.category?.name || ''] || (
-                          t.type === TRANSACTION_TYPES.INCOME ? (
+                        {categoryIcons[t.category?.name || ''] ||
+                          (t.type === TRANSACTION_TYPES.INCOME ? (
                             <ArrowDownRight className="text-emerald-400" />
                           ) : (
                             <ArrowUpRight className="text-red-400" />
-                          )
-                        )}
+                          ))}
                       </div>
 
                       {/* Details */}
-                      <div className="flex-1 min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="font-semibold">{t.category?.name || 'Uncategorized'}</p>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                          <span className="rounded-full bg-white/10 px-2 py-0.5">{t.account?.name}</span>
-                          {t.note && <span className="truncate max-w-[200px]">{t.note}</span>}
+                          <span className="rounded-full bg-white/10 px-2 py-0.5">
+                            {t.account?.name}
+                          </span>
+                          {t.note && <span className="max-w-[200px] truncate">{t.note}</span>}
                         </div>
                       </div>
 
@@ -411,7 +435,7 @@ function TransactionsContent() {
       {/* Edit Modal */}
       {editingTransaction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md animate-scale-in rounded-3xl border border-white/10 bg-surface p-6">
+          <div className="animate-scale-in w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-bold">Edit Transaction</h2>
               <button
@@ -441,7 +465,10 @@ function TransactionsContent() {
 
               {editingTransaction.type === TRANSACTION_TYPES.EXPENSE && (
                 <p className="text-sm text-muted">
-                  Available: <span className="font-semibold text-text">{formatCurrency(getAvailableFundsForEdit() || 0, currency)}</span>
+                  Available:{' '}
+                  <span className="font-semibold text-text">
+                    {formatCurrency(getAvailableFundsForEdit() || 0, currency)}
+                  </span>
                 </p>
               )}
 
@@ -473,10 +500,12 @@ function TransactionsContent() {
                 }
                 options={[
                   { value: '', label: 'Uncategorized' },
-                  ...(categories?.filter((c) => c.type === editingTransaction.type).map((c) => ({
-                    value: c.id,
-                    label: c.name,
-                  })) || []),
+                  ...(categories
+                    ?.filter((c) => c.type === editingTransaction.type)
+                    .map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                    })) || []),
                 ]}
               />
 
@@ -525,7 +554,7 @@ function TransactionsContent() {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm animate-scale-in rounded-3xl border border-white/10 bg-surface p-6 text-center">
+          <div className="animate-scale-in w-full max-w-sm rounded-3xl border border-white/10 bg-surface p-6 text-center">
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
               <Trash2 size={32} className="text-red-500" />
             </div>
@@ -552,8 +581,14 @@ function TransactionsContent() {
 
       <style jsx global>{`
         @keyframes scale-in {
-          0% { transform: scale(0.95); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
+          0% {
+            transform: scale(0.95);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
         .animate-scale-in {
           animation: scale-in 0.2s ease-out forwards;

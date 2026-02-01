@@ -120,9 +120,7 @@ export function roundMoney(value: number, decimals: number = DECIMAL_PLACES): nu
  * Convert a Prisma Decimal or any numeric value to a number.
  * Handles null, undefined, Decimal objects, and regular numbers.
  */
-export function toNumber(
-  value: number | { toNumber: () => number } | null | undefined
-): number {
+export function toNumber(value: number | { toNumber: () => number } | null | undefined): number {
   if (value === null || value === undefined) return 0;
   if (typeof value === 'number') return value;
   if (typeof value.toNumber === 'function') return value.toNumber();

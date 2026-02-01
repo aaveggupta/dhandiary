@@ -23,11 +23,11 @@ export async function GET(req: Request) {
     const search = searchParams.get('search'); // Optional search query
 
     const where: { country?: string; name?: { contains: string; mode: 'insensitive' } } = {};
-    
+
     if (country && country !== 'ALL') {
       where.country = country;
     }
-    
+
     if (search) {
       where.name = {
         contains: search,

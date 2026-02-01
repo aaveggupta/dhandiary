@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useBanks, useCreateBank, Bank } from '@/hooks/use-banks';
+import { useBanks, useCreateBank } from '@/hooks/use-banks';
 import { ChevronDown, Search, Plus, Building2, Check, Loader2 } from 'lucide-react';
 
 interface BankSelectProps {
@@ -86,8 +86,6 @@ export function BankSelect({
     }
   };
 
-  const selectedBank = banks.find((b) => b.name === value);
-
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
       {/* Trigger button */}
@@ -98,11 +96,7 @@ export function BankSelect({
       >
         <span className="flex items-center gap-2">
           <Building2 className="h-4 w-4 text-slate-400" />
-          {value ? (
-            <span>{value}</span>
-          ) : (
-            <span className="text-slate-400">{placeholder}</span>
-          )}
+          {value ? <span>{value}</span> : <span className="text-slate-400">{placeholder}</span>}
         </span>
         <ChevronDown
           className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}

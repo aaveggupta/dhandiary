@@ -45,7 +45,9 @@ export function CreditCardAlerts({ currency = 'INR' }: CreditCardAlertsProps) {
           </div>
           <div>
             <h3 className="font-semibold text-white">Credit Cards</h3>
-            <p className="text-xs text-white/60">{summary.totalCards} card{summary.totalCards !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-white/60">
+              {summary.totalCards} card{summary.totalCards !== 1 ? 's' : ''}
+            </p>
           </div>
         </div>
         <div className="text-right">
@@ -147,9 +149,7 @@ export function CreditCardAlerts({ currency = 'INR' }: CreditCardAlertsProps) {
 
       {/* Individual Cards */}
       <div className="px-6 py-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/50">
-          All Cards
-        </p>
+        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-white/50">All Cards</p>
         <div className="space-y-2">
           {cards.map((card) => (
             <div
@@ -176,7 +176,9 @@ export function CreditCardAlerts({ currency = 'INR' }: CreditCardAlertsProps) {
               <div className="text-right">
                 <p className="font-mono text-sm text-white">
                   {formatCurrency(card.currentBalance, currency)}{' '}
-                  <span className="text-white/40">/ {formatCurrency(card.creditLimit, currency)}</span>
+                  <span className="text-white/40">
+                    / {formatCurrency(card.creditLimit, currency)}
+                  </span>
                 </p>
                 {/* Utilization bar */}
                 <div className="mt-1 h-1.5 w-24 overflow-hidden rounded-full bg-white/10">

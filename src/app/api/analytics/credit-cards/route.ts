@@ -52,16 +52,16 @@ export async function GET() {
       // For credit cards, balance is typically negative (representing debt)
       // We'll treat the absolute value as the amount owed
       // Use shared limit if available, otherwise individual limit
-      const creditLimit = card.sharedCreditLimit 
+      const creditLimit = card.sharedCreditLimit
         ? toNumber(card.sharedCreditLimit.totalLimit)
         : toNumber(card.creditLimit) || 0;
-      
+
       // Use getCreditCardStatus for consistent calculations
       const cardStatus = getCreditCardStatus({
         balance: toNumber(card.balance),
         creditLimit,
       });
-      
+
       const currentBalance = cardStatus.outstanding;
       const availableCredit = cardStatus.availableCredit;
       const utilizationPercent = cardStatus.utilization;
@@ -84,8 +84,12 @@ export async function GET() {
           daysUntilDue = dueDay - currentDay;
         } else {
           // Due date is next month
-          const daysInCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-          daysUntilDue = (daysInCurrentMonth - currentDay) + dueDay;
+          const daysInCurrentMonth = new Date(
+            today.getFullYear(),
+            today.getMonth() + 1,
+            0
+          ).getDate();
+          daysUntilDue = daysInCurrentMonth - currentDay + dueDay;
         }
       }
 
@@ -110,14 +114,16 @@ export async function GET() {
     // Summary stats using roundMoney for consistency
     const totalCreditLimit = roundMoney(insights.reduce((sum, card) => sum + card.creditLimit, 0));
     const totalBalance = roundMoney(insights.reduce((sum, card) => sum + card.currentBalance, 0));
-    const totalAvailable = roundMoney(insights.reduce((sum, card) => sum + card.availableCredit, 0));
-    const overallUtilization = totalCreditLimit > 0 
-      ? Math.round((totalBalance / totalCreditLimit) * 100) 
-      : 0;
+    const totalAvailable = roundMoney(
+      insights.reduce((sum, card) => sum + card.availableCredit, 0)
+    );
+    const overallUtilization =
+      totalCreditLimit > 0 ? Math.round((totalBalance / totalCreditLimit) * 100) : 0;
 
     // Cards with high utilization (above their alert threshold)
     const highUtilizationCards = insights.filter(
-      (card) => card.utilizationAlertEnabled && card.utilizationPercent >= card.utilizationAlertPercent
+      (card) =>
+        card.utilizationAlertEnabled && card.utilizationPercent >= card.utilizationAlertPercent
     );
 
     // Cards with upcoming due dates (within 7 days)
