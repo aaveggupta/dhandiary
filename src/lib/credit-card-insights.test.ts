@@ -10,10 +10,10 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  getCreditCardStatus,
   calculateSharedLimitStats,
-  roundMoney,
   calculateNetWorth,
+  calculateDaysUntilDue,
+  getUtilizationStatus,
 } from './finance';
 import { ACCOUNT_TYPES } from './constants';
 
@@ -38,25 +38,7 @@ interface CreditCardInsight {
   utilizationAlertPercent: number;
 }
 
-function getUtilizationStatus(
-  utilization: number,
-  threshold: number
-): 'good' | 'warning' | 'danger' {
-  if (utilization >= 75) return 'danger';
-  if (utilization >= threshold) return 'warning';
-  return 'good';
-}
-
-function calculateDaysUntilDue(paymentDueDay: number | null, currentDay: number): number | null {
-  if (!paymentDueDay) return null;
-
-  if (currentDay <= paymentDueDay) {
-    return paymentDueDay - currentDay;
-  } else {
-    // Due date is next month - assume 30 days in month for simplicity
-    return 30 - currentDay + paymentDueDay;
-  }
-}
+// Using getUtilizationStatus and calculateDaysUntilDue from finance.ts (single source of truth)
 
 function calculateCreditCardInsight(
   card: {
@@ -71,7 +53,8 @@ function calculateCreditCardInsight(
     utilizationAlertEnabled: boolean;
     utilizationAlertPercent: number;
   },
-  currentDay: number = 15
+  _currentDay: number = 15,
+  today: Date = new Date(2024, 0, _currentDay) // Default to January for predictable 31-day month
 ): CreditCardInsight {
   const currentBalance = Math.abs(card.balance);
   const creditLimit = card.creditLimit || 0;
@@ -90,7 +73,9 @@ function calculateCreditCardInsight(
     utilizationStatus: getUtilizationStatus(utilizationPercent, card.utilizationAlertPercent),
     billingCycleDay: card.billingCycleDay,
     paymentDueDay: card.paymentDueDay,
-    daysUntilDue: calculateDaysUntilDue(card.paymentDueDay, currentDay),
+    // Use finance.ts function - handle null paymentDueDay separately
+    daysUntilDue:
+      card.paymentDueDay !== null ? calculateDaysUntilDue(card.paymentDueDay, today) : null,
     utilizationAlertEnabled: card.utilizationAlertEnabled,
     utilizationAlertPercent: card.utilizationAlertPercent,
   };
@@ -131,19 +116,35 @@ describe('getUtilizationStatus', () => {
 // =============================================================================
 
 describe('calculateDaysUntilDue', () => {
-  it('should return null if no due day', () => {
-    expect(calculateDaysUntilDue(null, 15)).toBeNull();
-  });
+  // Use January 2024 (31 days) for predictable results
+  const jan2024 = (day: number) => new Date(2024, 0, day);
+
+  // Note: The finance.ts function doesn't accept null - null handling is done at call site
+  // This test validates that behavior is correct when called with valid due days
 
   it('should calculate days when due day is later this month', () => {
-    expect(calculateDaysUntilDue(20, 15)).toBe(5);
-    expect(calculateDaysUntilDue(25, 10)).toBe(15);
-    expect(calculateDaysUntilDue(5, 5)).toBe(0); // Due today
+    expect(calculateDaysUntilDue(20, jan2024(15))).toBe(5);
+    expect(calculateDaysUntilDue(25, jan2024(10))).toBe(15);
+    expect(calculateDaysUntilDue(5, jan2024(5))).toBe(0); // Due today
   });
 
   it('should calculate days when due day is next month', () => {
-    expect(calculateDaysUntilDue(5, 25)).toBe(10); // 5 days left + 5 into next month
-    expect(calculateDaysUntilDue(1, 28)).toBe(3); // 2 days left + 1 into next month
+    // Jan has 31 days, Feb 2024 has 29 days (leap year)
+    expect(calculateDaysUntilDue(5, jan2024(25))).toBe(11); // 6 days left in Jan + 5 into Feb
+    expect(calculateDaysUntilDue(1, jan2024(28))).toBe(4); // 3 days left in Jan + 1 into Feb
+  });
+
+  it('should handle month boundaries for due days > days in next month', () => {
+    // From Jan 30 with dueDay 31: due is Jan 31 (tomorrow), so 1 day away
+    expect(calculateDaysUntilDue(31, jan2024(30))).toBe(1);
+
+    // From Jan 31 with dueDay 31: due is today, so 0 days away
+    expect(calculateDaysUntilDue(31, jan2024(31))).toBe(0);
+
+    // From Feb 1 2024 (leap year, 29 days) with dueDay 31:
+    // Due date would be Feb 29 (last day), which is 28 days away
+    const feb2024 = (day: number) => new Date(2024, 1, day);
+    expect(calculateDaysUntilDue(31, feb2024(1))).toBe(28);
   });
 });
 
@@ -152,6 +153,9 @@ describe('calculateDaysUntilDue', () => {
 // =============================================================================
 
 describe('calculateCreditCardInsight', () => {
+  // Use January 2024 (31 days) for predictable results
+  const jan2024 = (day: number) => new Date(2024, 0, day);
+
   it('should calculate insight for card with outstanding balance', () => {
     const card = {
       id: '1',
@@ -166,13 +170,14 @@ describe('calculateCreditCardInsight', () => {
       utilizationAlertPercent: 30,
     };
 
-    const insight = calculateCreditCardInsight(card, 20);
+    const insight = calculateCreditCardInsight(card, 20, jan2024(20));
 
     expect(insight.currentBalance).toBe(15000);
     expect(insight.availableCredit).toBe(85000);
     expect(insight.utilizationPercent).toBe(15);
     expect(insight.utilizationStatus).toBe('good');
-    expect(insight.daysUntilDue).toBe(15); // 10 days to end of month + 5
+    // From Jan 20: 11 days left in Jan (21-31) + 5 into Feb = 16 days
+    expect(insight.daysUntilDue).toBe(16);
   });
 
   it('should flag high utilization correctly', () => {
@@ -229,7 +234,7 @@ describe('calculateCreditCardInsight', () => {
       utilizationAlertPercent: 30,
     };
 
-    const insight = calculateCreditCardInsight(card, 10);
+    const insight = calculateCreditCardInsight(card, 10, jan2024(10));
 
     expect(insight.currentBalance).toBe(0);
     expect(insight.availableCredit).toBe(50000);
@@ -408,8 +413,9 @@ describe('stress tests - bulk calculations', () => {
       expectedLiabilities += Math.abs(finalCreditBalance);
     }
 
-    expect(roundMoney(netWorth.totalAssets)).toBe(roundMoney(expectedAssets));
-    expect(roundMoney(netWorth.totalLiabilities)).toBe(roundMoney(expectedLiabilities));
+    // Use toBeCloseTo to handle floating point precision issues with random values
+    expect(netWorth.totalAssets).toBeCloseTo(expectedAssets, 1);
+    expect(netWorth.totalLiabilities).toBeCloseTo(expectedLiabilities, 1);
   });
 
   it('should handle shared limit with 10 cards', () => {

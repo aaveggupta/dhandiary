@@ -108,7 +108,10 @@ export const MEDIUM_UTILIZATION_THRESHOLD = 50;
 
 /**
  * Round a number to the specified decimal places.
- * Uses banker's rounding (round half to even) for financial accuracy.
+ * Uses standard rounding (half-up) for consistency with display formatting.
+ *
+ * Note: For high-precision financial calculations requiring banker's rounding
+ * (round half to even), consider using a dedicated library like decimal.js.
  */
 export function roundMoney(value: number, decimals: number = DECIMAL_PLACES): number {
   if (!Number.isFinite(value)) return 0;
@@ -523,6 +526,75 @@ export function formatSignedCurrency(amount: number, currency: string = 'INR'): 
   if (value > 0) return `+${formatted}`;
   if (value < 0) return `-${formatted}`;
   return formatted;
+}
+
+// =============================================================================
+// DATE CALCULATIONS
+// =============================================================================
+
+/**
+ * Calculate days until a specific day of month, handling month boundaries correctly.
+ * Treats days > days in target month as "last day of month".
+ *
+ * @param dueDay - Day of month when payment is due (1-31)
+ * @param today - Current date (defaults to now)
+ * @returns Number of days until the due date
+ *
+ * @example
+ * // If today is Jan 15 and due day is 20, returns 5
+ * calculateDaysUntilDue(20, new Date(2024, 0, 15)) // => 5
+ *
+ * @example
+ * // If today is Jan 25 and due day is 5, returns days to Feb 5
+ * calculateDaysUntilDue(5, new Date(2024, 0, 25)) // => 11
+ *
+ * @example
+ * // If due day is 31 but next month has 28 days, treats as last day
+ * calculateDaysUntilDue(31, new Date(2024, 1, 1)) // => 28 (Feb 29 in leap year)
+ */
+export function calculateDaysUntilDue(dueDay: number, today: Date = new Date()): number {
+  const currentDay = today.getDate();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+
+  // Get days in current month
+  const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+
+  // Effective due day for this month (handle 31 in months with fewer days)
+  const effectiveDueDayThisMonth = Math.min(dueDay, daysInCurrentMonth);
+
+  if (currentDay <= effectiveDueDayThisMonth) {
+    // Due date is this month
+    return effectiveDueDayThisMonth - currentDay;
+  }
+
+  // Due date is next month
+  const nextMonth = currentMonth + 1;
+  const nextMonthYear = nextMonth > 11 ? currentYear + 1 : currentYear;
+  const nextMonthIndex = nextMonth > 11 ? 0 : nextMonth;
+  const daysInNextMonth = new Date(nextMonthYear, nextMonthIndex + 1, 0).getDate();
+
+  // Effective due day for next month
+  const effectiveDueDayNextMonth = Math.min(dueDay, daysInNextMonth);
+
+  // Days remaining in current month + days into next month
+  return daysInCurrentMonth - currentDay + effectiveDueDayNextMonth;
+}
+
+/**
+ * Get utilization status based on percentage and threshold.
+ *
+ * @param utilization - Current utilization percentage
+ * @param alertThreshold - User's alert threshold (default 30)
+ * @returns Status: 'good', 'warning', or 'danger'
+ */
+export function getUtilizationStatus(
+  utilization: number,
+  alertThreshold: number = 30
+): 'good' | 'warning' | 'danger' {
+  if (utilization >= 75) return 'danger';
+  if (utilization >= alertThreshold) return 'warning';
+  return 'good';
 }
 
 // =============================================================================

@@ -23,6 +23,7 @@ export async function GET(req: Request, { params }: RouteParams) {
       where: { id, userId },
       include: {
         accounts: {
+          where: { isArchived: false },
           select: {
             id: true,
             name: true,
@@ -85,6 +86,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
       },
       include: {
         accounts: {
+          where: { isArchived: false },
           select: {
             id: true,
             name: true,
