@@ -262,4 +262,20 @@ describe('functionName', () => {
 
 ---
 
+## 📚 Skills
+
+Detailed guides for common tasks are in the `skills/` directory:
+
+| Skill | Description |
+|-------|-------------|
+| [add-feature](skills/add-feature/SKILL.md) | End-to-end guide for adding new features |
+| [add-calculation](skills/add-calculation/SKILL.md) | Adding financial calculations to finance.ts |
+| [add-api-route](skills/add-api-route/SKILL.md) | Creating new API routes |
+| [database-changes](skills/database-changes/SKILL.md) | Schema changes and migrations |
+| [testing](skills/testing/SKILL.md) | Writing and running tests |
+
+**Read the relevant skill before starting work!**
+
+---
+
 *Last updated: February 2026*
