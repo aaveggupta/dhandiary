@@ -115,7 +115,7 @@ describe('parseAmount', () => {
 describe('moneyEquals', () => {
   it('should return true for equal amounts', () => {
     expect(moneyEquals(100, 100)).toBe(true);
-    expect(moneyEquals(100.00, 100)).toBe(true);
+    expect(moneyEquals(100.0, 100)).toBe(true);
     expect(moneyEquals(100.001, 100.002)).toBe(true); // Within tolerance
   });
 
@@ -385,7 +385,12 @@ describe('getAvailableCredit', () => {
 describe('calculateTransactionImpact', () => {
   describe('for bank accounts', () => {
     it('should handle income', () => {
-      const result = calculateTransactionImpact(10000, 5000, TRANSACTION_TYPES.INCOME, ACCOUNT_TYPES.BANK);
+      const result = calculateTransactionImpact(
+        10000,
+        5000,
+        TRANSACTION_TYPES.INCOME,
+        ACCOUNT_TYPES.BANK
+      );
 
       expect(result.newBalance).toBe(15000);
       expect(result.balanceChange).toBe(5000);
@@ -393,7 +398,12 @@ describe('calculateTransactionImpact', () => {
     });
 
     it('should handle valid expense', () => {
-      const result = calculateTransactionImpact(10000, 5000, TRANSACTION_TYPES.EXPENSE, ACCOUNT_TYPES.BANK);
+      const result = calculateTransactionImpact(
+        10000,
+        5000,
+        TRANSACTION_TYPES.EXPENSE,
+        ACCOUNT_TYPES.BANK
+      );
 
       expect(result.newBalance).toBe(5000);
       expect(result.balanceChange).toBe(-5000);
@@ -401,7 +411,12 @@ describe('calculateTransactionImpact', () => {
     });
 
     it('should reject expense exceeding balance', () => {
-      const result = calculateTransactionImpact(10000, 15000, TRANSACTION_TYPES.EXPENSE, ACCOUNT_TYPES.BANK);
+      const result = calculateTransactionImpact(
+        10000,
+        15000,
+        TRANSACTION_TYPES.EXPENSE,
+        ACCOUNT_TYPES.BANK
+      );
 
       expect(result.newBalance).toBe(-5000);
       expect(result.isAllowed).toBe(false);
@@ -411,7 +426,13 @@ describe('calculateTransactionImpact', () => {
 
   describe('for credit cards', () => {
     it('should handle valid expense within credit', () => {
-      const result = calculateTransactionImpact(-5000, 10000, TRANSACTION_TYPES.EXPENSE, ACCOUNT_TYPES.CREDIT, 95000);
+      const result = calculateTransactionImpact(
+        -5000,
+        10000,
+        TRANSACTION_TYPES.EXPENSE,
+        ACCOUNT_TYPES.CREDIT,
+        95000
+      );
 
       expect(result.newBalance).toBe(-15000);
       expect(result.balanceChange).toBe(-10000);
@@ -419,14 +440,26 @@ describe('calculateTransactionImpact', () => {
     });
 
     it('should reject expense exceeding available credit', () => {
-      const result = calculateTransactionImpact(-5000, 100000, TRANSACTION_TYPES.EXPENSE, ACCOUNT_TYPES.CREDIT, 95000);
+      const result = calculateTransactionImpact(
+        -5000,
+        100000,
+        TRANSACTION_TYPES.EXPENSE,
+        ACCOUNT_TYPES.CREDIT,
+        95000
+      );
 
       expect(result.isAllowed).toBe(false);
       expect(result.errorMessage).toContain('Insufficient credit');
     });
 
     it('should handle payment (income) to credit card', () => {
-      const result = calculateTransactionImpact(-5000, 3000, TRANSACTION_TYPES.INCOME, ACCOUNT_TYPES.CREDIT, 95000);
+      const result = calculateTransactionImpact(
+        -5000,
+        3000,
+        TRANSACTION_TYPES.INCOME,
+        ACCOUNT_TYPES.CREDIT,
+        95000
+      );
 
       expect(result.newBalance).toBe(-2000);
       expect(result.balanceChange).toBe(3000);
@@ -434,7 +467,13 @@ describe('calculateTransactionImpact', () => {
     });
 
     it('should handle overpayment creating credit balance', () => {
-      const result = calculateTransactionImpact(-5000, 7000, TRANSACTION_TYPES.INCOME, ACCOUNT_TYPES.CREDIT, 95000);
+      const result = calculateTransactionImpact(
+        -5000,
+        7000,
+        TRANSACTION_TYPES.INCOME,
+        ACCOUNT_TYPES.CREDIT,
+        95000
+      );
 
       expect(result.newBalance).toBe(2000);
       expect(result.isAllowed).toBe(true);
@@ -443,7 +482,12 @@ describe('calculateTransactionImpact', () => {
 
   describe('for transfers', () => {
     it('should have no balance change', () => {
-      const result = calculateTransactionImpact(10000, 5000, TRANSACTION_TYPES.TRANSFER, ACCOUNT_TYPES.BANK);
+      const result = calculateTransactionImpact(
+        10000,
+        5000,
+        TRANSACTION_TYPES.TRANSFER,
+        ACCOUNT_TYPES.BANK
+      );
 
       expect(result.newBalance).toBe(10000);
       expect(result.balanceChange).toBe(0);
@@ -837,7 +881,13 @@ describe('real-world scenarios', () => {
   it('should handle paying off credit card completely', () => {
     // User has 15000 outstanding, pays 15000
     const initialBalance = -15000;
-    const impact = calculateTransactionImpact(initialBalance, 15000, TRANSACTION_TYPES.INCOME, ACCOUNT_TYPES.CREDIT, 85000);
+    const impact = calculateTransactionImpact(
+      initialBalance,
+      15000,
+      TRANSACTION_TYPES.INCOME,
+      ACCOUNT_TYPES.CREDIT,
+      85000
+    );
 
     expect(impact.newBalance).toBe(0);
     expect(impact.isAllowed).toBe(true);
@@ -851,7 +901,13 @@ describe('real-world scenarios', () => {
   it('should handle overpaying credit card', () => {
     // User has 15000 outstanding, pays 20000
     const initialBalance = -15000;
-    const impact = calculateTransactionImpact(initialBalance, 20000, TRANSACTION_TYPES.INCOME, ACCOUNT_TYPES.CREDIT, 85000);
+    const impact = calculateTransactionImpact(
+      initialBalance,
+      20000,
+      TRANSACTION_TYPES.INCOME,
+      ACCOUNT_TYPES.CREDIT,
+      85000
+    );
 
     expect(impact.newBalance).toBe(5000);
     expect(impact.isAllowed).toBe(true);

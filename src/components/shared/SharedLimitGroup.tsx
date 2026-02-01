@@ -38,9 +38,7 @@ export function SharedLimitGroup({
   return (
     <div className="relative">
       {/* Group Header - The "Pool" indicator */}
-      <div
-        className={`relative mb-4 overflow-hidden rounded-2xl border ${utilizationBgClass} p-4`}
-      >
+      <div className={`relative mb-4 overflow-hidden rounded-2xl border ${utilizationBgClass} p-4`}>
         {/* Background gradient */}
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 to-purple-600/5" />
 
@@ -119,7 +117,8 @@ export function SharedLimitGroup({
             </div>
             <div className="mt-1.5 flex justify-between text-xs">
               <span className="text-white/50">
-                {sharedLimit.utilization}% used ({formatCurrency(sharedLimit.totalOutstanding, currency)} outstanding)
+                {sharedLimit.utilization}% used (
+                {formatCurrency(sharedLimit.totalOutstanding, currency)} outstanding)
               </span>
               <button
                 onClick={() => onEditLimit(sharedLimit)}

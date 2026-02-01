@@ -33,18 +33,18 @@ import type { TransactionType } from '@/types';
 // Category icons mapping
 const categoryIcons: Record<string, string> = {
   'Bills & Utilities': '🏠',
-  'Education': '📚',
-  'Entertainment': '🎬',
+  Education: '📚',
+  Entertainment: '🎬',
   'Food & Dining': '🍔',
-  'Healthcare': '🏥',
-  'Other': '📦',
-  'Shopping': '🛍️',
-  'Transportation': '🚗',
-  'Freelance': '💼',
-  'Gift': '🎁',
-  'Investment': '📈',
+  Healthcare: '🏥',
+  Other: '📦',
+  Shopping: '🛍️',
+  Transportation: '🚗',
+  Freelance: '💼',
+  Gift: '🎁',
+  Investment: '📈',
   'Other Income': '💰',
-  'Salary': '💵',
+  Salary: '💵',
 };
 
 export default function AddTransactionPage() {
@@ -64,7 +64,7 @@ export default function AddTransactionPage() {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
-  
+
   // UI State
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -103,10 +103,16 @@ export default function AddTransactionPage() {
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target as Node)) {
+      if (
+        accountDropdownRef.current &&
+        !accountDropdownRef.current.contains(event.target as Node)
+      ) {
         setShowAccountDropdown(false);
       }
-      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+      if (
+        categoryDropdownRef.current &&
+        !categoryDropdownRef.current.contains(event.target as Node)
+      ) {
         setShowCategoryDropdown(false);
       }
     };
@@ -133,9 +139,15 @@ export default function AddTransactionPage() {
     const submitAmount = parseFloat(amount);
     if (submitAmount <= 0 || !selectedAccount) return;
 
-    if (type === TRANSACTION_TYPES.EXPENSE && availableFunds !== null && submitAmount > availableFunds) {
+    if (
+      type === TRANSACTION_TYPES.EXPENSE &&
+      availableFunds !== null &&
+      submitAmount > availableFunds
+    ) {
       const accountType = currentAccount?.type === ACCOUNT_TYPES.CREDIT ? 'credit' : 'balance';
-      setSubmitError(`Insufficient ${accountType}. Available: ${formatCurrency(availableFunds, currency)}`);
+      setSubmitError(
+        `Insufficient ${accountType}. Available: ${formatCurrency(availableFunds, currency)}`
+      );
       return;
     }
 
@@ -258,7 +270,9 @@ export default function AddTransactionPage() {
                 setSelectedCategory('');
               }}
               className={`relative z-10 flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition-all ${
-                type === TRANSACTION_TYPES.INCOME ? 'text-emerald-400' : 'text-muted hover:text-text'
+                type === TRANSACTION_TYPES.INCOME
+                  ? 'text-emerald-400'
+                  : 'text-muted hover:text-text'
               }`}
             >
               <ArrowDownRight size={18} /> Income
@@ -270,13 +284,15 @@ export default function AddTransactionPage() {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white/10 to-white/5 p-8">
           <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-gradient-to-br from-primary/20 to-transparent blur-3xl" />
           <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-gradient-to-br from-secondary/20 to-transparent blur-3xl" />
-          
+
           <div className="relative">
             <label className="mb-4 block text-center text-xs font-bold uppercase tracking-[0.2em] text-muted">
               Amount
             </label>
             <div className="flex items-center justify-center gap-2">
-              <span className={`text-4xl font-bold transition-colors ${numAmount > 0 ? 'text-white' : 'text-muted'}`}>
+              <span
+                className={`text-4xl font-bold transition-colors ${numAmount > 0 ? 'text-white' : 'text-muted'}`}
+              >
                 {getCurrencySymbol(currency)}
               </span>
               <input
@@ -300,15 +316,21 @@ export default function AddTransactionPage() {
             </div>
 
             {type === TRANSACTION_TYPES.EXPENSE && currentAccount && availableFunds !== null && (
-              <div className={`mt-4 text-center text-sm ${isInsufficientFunds ? 'text-red-400' : 'text-muted'}`}>
-                Available: <span className="font-semibold">{formatCurrency(availableFunds, currency)}</span>
+              <div
+                className={`mt-4 text-center text-sm ${isInsufficientFunds ? 'text-red-400' : 'text-muted'}`}
+              >
+                Available:{' '}
+                <span className="font-semibold">{formatCurrency(availableFunds, currency)}</span>
               </div>
             )}
 
             {isInsufficientFunds && (
               <div className="mt-3 flex items-center justify-center gap-2 text-sm text-red-400">
                 <AlertCircle size={16} className="animate-pulse" />
-                <span>Exceeds available {currentAccount?.type === ACCOUNT_TYPES.CREDIT ? 'credit' : 'balance'}</span>
+                <span>
+                  Exceeds available{' '}
+                  {currentAccount?.type === ACCOUNT_TYPES.CREDIT ? 'credit' : 'balance'}
+                </span>
               </div>
             )}
           </div>
@@ -331,16 +353,21 @@ export default function AddTransactionPage() {
                 showAccountDropdown ? 'border-primary/50' : 'border-white/10'
               }`}
             >
-              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${currentAccount ? getAccountColor(currentAccount.type) : 'bg-white/10'}`}>
+              <div
+                className={`flex h-9 w-9 items-center justify-center rounded-xl ${currentAccount ? getAccountColor(currentAccount.type) : 'bg-white/10'}`}
+              >
                 {currentAccount && getAccountIcon(currentAccount.type)}
               </div>
-              <div className="flex-1 text-left min-w-0">
-                <p className="font-semibold truncate text-sm">{currentAccount?.name || 'Select'}</p>
-                <p className="text-xs text-muted truncate">
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-semibold">{currentAccount?.name || 'Select'}</p>
+                <p className="truncate text-xs text-muted">
                   {currentAccount && formatCurrency(toNumber(currentAccount.balance), currency)}
                 </p>
               </div>
-              <ChevronDown size={16} className={`text-muted transition-transform flex-shrink-0 ${showAccountDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                size={16}
+                className={`flex-shrink-0 text-muted transition-transform ${showAccountDropdown ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {/* Account Dropdown List */}
@@ -358,15 +385,19 @@ export default function AddTransactionPage() {
                       selectedAccount === account.id ? 'bg-primary/20' : 'hover:bg-white/10'
                     }`}
                   >
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${getAccountColor(account.type)}`}>
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${getAccountColor(account.type)}`}
+                    >
                       {getAccountIcon(account.type)}
                     </div>
-                    <div className="flex-1 text-left min-w-0">
-                      <p className="text-sm font-medium truncate">{account.name}</p>
-                      <p className="text-xs text-muted">{formatCurrency(toNumber(account.balance), currency)}</p>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="truncate text-sm font-medium">{account.name}</p>
+                      <p className="text-xs text-muted">
+                        {formatCurrency(toNumber(account.balance), currency)}
+                      </p>
                     </div>
                     {selectedAccount === account.id && (
-                      <Check size={16} className="text-primary flex-shrink-0" />
+                      <Check size={16} className="flex-shrink-0 text-primary" />
                     )}
                   </button>
                 ))}
@@ -389,16 +420,23 @@ export default function AddTransactionPage() {
                 showCategoryDropdown ? 'border-primary/50' : 'border-white/10'
               }`}
             >
-              <div className={`flex h-9 w-9 items-center justify-center rounded-xl text-lg ${
-                type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
-              }`}>
+              <div
+                className={`flex h-9 w-9 items-center justify-center rounded-xl text-lg ${
+                  type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
+                }`}
+              >
                 {categoryIcons[currentCategory?.name || ''] || '📌'}
               </div>
-              <div className="flex-1 text-left min-w-0">
-                <p className="font-semibold truncate text-sm">{currentCategory?.name || 'Select'}</p>
+              <div className="min-w-0 flex-1 text-left">
+                <p className="truncate text-sm font-semibold">
+                  {currentCategory?.name || 'Select'}
+                </p>
                 <p className="text-xs text-muted">Tap to change</p>
               </div>
-              <ChevronDown size={16} className={`text-muted transition-transform flex-shrink-0 ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+              <ChevronDown
+                size={16}
+                className={`flex-shrink-0 text-muted transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
+              />
             </button>
 
             {/* Category Dropdown List */}
@@ -413,21 +451,30 @@ export default function AddTransactionPage() {
                       setShowCategoryDropdown(false);
                     }}
                     className={`flex w-full items-center gap-3 rounded-xl p-3 transition-all ${
-                      selectedCategory === category.id 
-                        ? type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/20' : 'bg-emerald-500/20'
+                      selectedCategory === category.id
+                        ? type === TRANSACTION_TYPES.EXPENSE
+                          ? 'bg-red-500/20'
+                          : 'bg-emerald-500/20'
                         : 'hover:bg-white/10'
                     }`}
                   >
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${
-                      type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
-                    }`}>
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${
+                        type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
+                      }`}
+                    >
                       {categoryIcons[category.name] || '📌'}
                     </div>
                     <div className="flex-1 text-left">
                       <p className="text-sm font-medium">{category.name}</p>
                     </div>
                     {selectedCategory === category.id && (
-                      <Check size={16} className={type === TRANSACTION_TYPES.EXPENSE ? 'text-red-400' : 'text-emerald-400'} />
+                      <Check
+                        size={16}
+                        className={
+                          type === TRANSACTION_TYPES.EXPENSE ? 'text-red-400' : 'text-emerald-400'
+                        }
+                      />
                     )}
                   </button>
                 ))}
@@ -477,7 +524,9 @@ export default function AddTransactionPage() {
           type="submit"
           size="lg"
           fullWidth
-          disabled={!amount || parseFloat(amount) <= 0 || createTransaction.isPending || isInsufficientFunds}
+          disabled={
+            !amount || parseFloat(amount) <= 0 || createTransaction.isPending || isInsufficientFunds
+          }
           className={`relative overflow-hidden rounded-2xl py-5 text-lg font-bold transition-all ${
             !amount || parseFloat(amount) <= 0 || isInsufficientFunds
               ? 'bg-white/10 text-muted'
@@ -500,8 +549,14 @@ export default function AddTransactionPage() {
 
       <style jsx>{`
         @keyframes scale-in {
-          0% { transform: scale(0.8); opacity: 0; }
-          100% { transform: scale(1); opacity: 1; }
+          0% {
+            transform: scale(0.8);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 1;
+          }
         }
         .animate-scale-in {
           animation: scale-in 0.3s ease-out forwards;

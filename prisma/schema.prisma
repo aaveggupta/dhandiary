@@ -123,3 +123,15 @@ enum TransactionType {
   EXPENSE
   TRANSFER
 }
+
+// Global bank dictionary - shared across all users
+model Bank {
+  id        String   @id @default(cuid())
+  name      String   @unique // Bank name (e.g., "HDFC Bank", "Chase")
+  country   String   @default("IN") // Country code (IN, US, etc.)
+  isSystem  Boolean  @default(false) // Pre-seeded banks vs user-added
+  createdAt DateTime @default(now())
+
+  @@index([country])
+  @@index([name])
+}

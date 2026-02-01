@@ -1,6 +1,6 @@
 /**
  * Credit Card Insights Tests
- * 
+ *
  * Tests for the credit card insights calculations including:
  * - Utilization calculations
  * - Due date calculations
@@ -59,9 +59,7 @@ function calculateCreditCardInsight(
   const currentBalance = Math.abs(card.balance);
   const creditLimit = card.creditLimit || 0;
   const availableCredit = Math.max(0, creditLimit - currentBalance);
-  const utilizationPercent = creditLimit > 0
-    ? Math.round((currentBalance / creditLimit) * 100)
-    : 0;
+  const utilizationPercent = creditLimit > 0 ? Math.round((currentBalance / creditLimit) * 100) : 0;
 
   return {
     id: card.id,
@@ -76,7 +74,8 @@ function calculateCreditCardInsight(
     billingCycleDay: card.billingCycleDay,
     paymentDueDay: card.paymentDueDay,
     // Use finance.ts function - handle null paymentDueDay separately
-    daysUntilDue: card.paymentDueDay !== null ? calculateDaysUntilDue(card.paymentDueDay, today) : null,
+    daysUntilDue:
+      card.paymentDueDay !== null ? calculateDaysUntilDue(card.paymentDueDay, today) : null,
     utilizationAlertEnabled: card.utilizationAlertEnabled,
     utilizationAlertPercent: card.utilizationAlertPercent,
   };
@@ -280,13 +279,13 @@ describe('stress tests - bulk calculations', () => {
       lastFourDigits: String(1000 + i).slice(-4),
       balance: -(Math.random() * 50000 + 1000), // Random balance 1000-51000
       creditLimit: 100000,
-      billingCycleDay: ((i % 28) + 1), // Days 1-28
-      paymentDueDay: (((i + 15) % 28) + 1), // Days 1-28
+      billingCycleDay: (i % 28) + 1, // Days 1-28
+      paymentDueDay: ((i + 15) % 28) + 1, // Days 1-28
       utilizationAlertEnabled: true,
       utilizationAlertPercent: 30,
     }));
 
-    const insights = cards.map(card => calculateCreditCardInsight(card));
+    const insights = cards.map((card) => calculateCreditCardInsight(card));
 
     // Verify all 67 cards processed
     expect(insights).toHaveLength(67);
@@ -312,7 +311,7 @@ describe('stress tests - bulk calculations', () => {
 
   it('should handle 45 mixed accounts for net worth calculation', () => {
     const accounts = [];
-    
+
     // 20 bank accounts
     for (let i = 0; i < 20; i++) {
       accounts.push({
@@ -320,7 +319,7 @@ describe('stress tests - bulk calculations', () => {
         balance: Math.random() * 500000 + 10000, // 10k - 510k
       });
     }
-    
+
     // 15 credit cards
     for (let i = 0; i < 15; i++) {
       accounts.push({
@@ -328,7 +327,7 @@ describe('stress tests - bulk calculations', () => {
         balance: -(Math.random() * 50000 + 1000), // -1k to -51k (debt)
       });
     }
-    
+
     // 10 cash accounts
     for (let i = 0; i < 10; i++) {
       accounts.push({
@@ -346,27 +345,27 @@ describe('stress tests - bulk calculations', () => {
 
     // Verify asset accounts contribute correctly
     const expectedAssets = accounts
-      .filter(a => a.type === ACCOUNT_TYPES.BANK || a.type === ACCOUNT_TYPES.CASH)
+      .filter((a) => a.type === ACCOUNT_TYPES.BANK || a.type === ACCOUNT_TYPES.CASH)
       .reduce((sum, a) => sum + a.balance, 0);
-    
+
     expect(result.totalAssets).toBeCloseTo(expectedAssets, 0); // Allow $1 variance due to rounding
 
     // Verify liability accounts contribute correctly
     const expectedLiabilities = accounts
-      .filter(a => a.type === ACCOUNT_TYPES.CREDIT)
+      .filter((a) => a.type === ACCOUNT_TYPES.CREDIT)
       .reduce((sum, a) => sum + Math.abs(a.balance), 0);
-    
+
     expect(result.totalLiabilities).toBeCloseTo(expectedLiabilities, 0); // Allow $1 variance due to rounding
   });
 
   it('should handle 500 transactions worth of balance changes', () => {
     let bankBalance = 100000;
     let creditBalance = 0;
-    
+
     const transactions = Array.from({ length: 500 }, (_, i) => {
       const isIncome = Math.random() > 0.6; // 40% income, 60% expense
       const amount = Math.random() * 5000 + 100; // 100-5100
-      
+
       if (isIncome) {
         bankBalance += amount;
       } else {
@@ -377,7 +376,7 @@ describe('stress tests - bulk calculations', () => {
           creditBalance -= amount; // Add to credit debt
         }
       }
-      
+
       return {
         type: isIncome ? 'INCOME' : 'EXPENSE',
         amount,
@@ -401,13 +400,13 @@ describe('stress tests - bulk calculations', () => {
     // - Credit: positive = asset (refund/credit), negative = liability (debt)
     let expectedAssets = 0;
     let expectedLiabilities = 0;
-    
+
     if (finalBankBalance >= 0) {
       expectedAssets += finalBankBalance;
     } else {
       expectedLiabilities += Math.abs(finalBankBalance);
     }
-    
+
     if (finalCreditBalance >= 0) {
       expectedAssets += finalCreditBalance;
     } else {
@@ -421,7 +420,7 @@ describe('stress tests - bulk calculations', () => {
 
   it('should handle shared limit with 10 cards', () => {
     const sharedLimit = 1000000; // 10 lakh shared limit
-    
+
     const cards = Array.from({ length: 10 }, (_, i) => ({
       id: `shared-card-${i + 1}`,
       name: `Shared Card ${i + 1}`,
@@ -434,13 +433,13 @@ describe('stress tests - bulk calculations', () => {
 
     // Verify calculations
     expect(stats.linkedAccounts).toHaveLength(10);
-    
+
     const expectedOutstanding = cards.reduce((sum, c) => sum + Math.abs(c.balance), 0);
     expect(stats.totalOutstanding).toBeCloseTo(expectedOutstanding, 1); // Allow minor rounding variance
-    
+
     const expectedAvailable = sharedLimit - expectedOutstanding;
     expect(stats.availableCredit).toBeCloseTo(expectedAvailable, 1); // Allow minor rounding variance
-    
+
     const expectedUtilization = Math.round((expectedOutstanding / sharedLimit) * 100);
     expect(stats.utilization).toBe(expectedUtilization);
   });
@@ -498,7 +497,8 @@ describe('alert filtering logic', () => {
     ];
 
     const highUtilization = cards.filter(
-      card => card.utilizationAlertEnabled && card.utilizationPercent >= card.utilizationAlertPercent
+      (card) =>
+        card.utilizationAlertEnabled && card.utilizationPercent >= card.utilizationAlertPercent
     );
 
     expect(highUtilization).toHaveLength(2);
@@ -516,7 +516,7 @@ describe('alert filtering logic', () => {
     ];
 
     const upcomingDues = cards
-      .filter(card => card.daysUntilDue !== null && card.daysUntilDue <= 7)
+      .filter((card) => card.daysUntilDue !== null && card.daysUntilDue <= 7)
       .sort((a, b) => (a.daysUntilDue || 0) - (b.daysUntilDue || 0));
 
     expect(upcomingDues).toHaveLength(3);

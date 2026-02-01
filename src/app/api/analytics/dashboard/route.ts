@@ -99,17 +99,19 @@ export async function GET() {
 
     // Calculate net worth using single source of truth
     const netWorthResult = calculateNetWorth(
-      accounts.map(acc => ({ type: acc.type, balance: acc.balance }))
+      accounts.map((acc) => ({ type: acc.type, balance: acc.balance }))
     );
     const netWorth = netWorthResult.netWorth;
 
     // Current month stats from aggregated data
     const monthlyIncome = roundMoney(
-      toNumber(currentMonthTotals.find((t) => t.type === TRANSACTION_TYPES.INCOME)?._sum.amount) || 0
+      toNumber(currentMonthTotals.find((t) => t.type === TRANSACTION_TYPES.INCOME)?._sum.amount) ||
+        0
     );
 
     const monthlyExpenses = roundMoney(
-      toNumber(currentMonthTotals.find((t) => t.type === TRANSACTION_TYPES.EXPENSE)?._sum.amount) || 0
+      toNumber(currentMonthTotals.find((t) => t.type === TRANSACTION_TYPES.EXPENSE)?._sum.amount) ||
+        0
     );
 
     // Previous month stats from aggregated data

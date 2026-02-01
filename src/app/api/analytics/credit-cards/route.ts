@@ -103,9 +103,10 @@ export async function GET() {
         const sharedTotals = sharedLimitTotals.get(card.sharedCreditLimitId!)!;
         // Utilization based on total shared balance vs shared limit
         const totalOutstanding = Math.abs(Math.min(sharedTotals.totalBalance, 0));
-        utilizationPercent = sharedTotals.totalLimit > 0
-          ? Math.round((totalOutstanding / sharedTotals.totalLimit) * 100)
-          : 0;
+        utilizationPercent =
+          sharedTotals.totalLimit > 0
+            ? Math.round((totalOutstanding / sharedTotals.totalLimit) * 100)
+            : 0;
         // Available credit is shared pool available
         availableCredit = roundMoney(sharedTotals.totalLimit + sharedTotals.totalBalance);
       } else {
@@ -175,13 +176,13 @@ export async function GET() {
     totalBalance = roundMoney(totalBalance);
     totalAvailable = roundMoney(totalAvailable);
 
-    const overallUtilization = totalCreditLimit > 0
-      ? Math.round((totalBalance / totalCreditLimit) * 100)
-      : 0;
+    const overallUtilization =
+      totalCreditLimit > 0 ? Math.round((totalBalance / totalCreditLimit) * 100) : 0;
 
     // Cards with high utilization (above their alert threshold)
     const highUtilizationCards = insights.filter(
-      (card) => card.utilizationAlertEnabled && card.utilizationPercent >= card.utilizationAlertPercent
+      (card) =>
+        card.utilizationAlertEnabled && card.utilizationPercent >= card.utilizationAlertPercent
     );
 
     // Cards with upcoming due dates (within 7 days)
