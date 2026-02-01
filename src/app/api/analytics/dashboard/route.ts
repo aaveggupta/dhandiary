@@ -30,8 +30,8 @@ export async function GET() {
     // Run all queries in parallel
     const [
       accounts,
-      currentMonthTransactions,
-      prevMonthTransactions,
+      currentMonthTotals,
+      prevMonthTotals,
       recentTransactions,
       last7DaysTransactions,
     ] = await Promise.all([
@@ -46,8 +46,9 @@ export async function GET() {
           currency: true,
         },
       }),
-      // Current month transactions
-      prisma.transaction.findMany({
+      // Current month totals using aggregation (more efficient)
+      prisma.transaction.groupBy({
+        by: ['type'],
         where: {
           userId,
           date: {
@@ -55,9 +56,11 @@ export async function GET() {
             lte: endOfMonth,
           },
         },
+        _sum: { amount: true },
       }),
-      // Previous month transactions
-      prisma.transaction.findMany({
+      // Previous month totals using aggregation
+      prisma.transaction.groupBy({
+        by: ['type'],
         where: {
           userId,
           date: {
@@ -65,6 +68,7 @@ export async function GET() {
             lte: endOfPrevMonth,
           },
         },
+        _sum: { amount: true },
       }),
       // Recent transactions
       prisma.transaction.findMany({
@@ -82,7 +86,7 @@ export async function GET() {
         orderBy: { date: 'desc' },
         take: 5,
       }),
-      // Last 7 days transactions for weekly activity
+      // Last 7 days transactions for weekly activity (need individual records for daily grouping)
       prisma.transaction.findMany({
         where: {
           userId,
@@ -99,51 +103,41 @@ export async function GET() {
     );
     const netWorth = netWorthResult.netWorth;
 
-    // Current month stats using toNumber for consistency
+    // Current month stats from aggregated data
     const monthlyIncome = roundMoney(
-      currentMonthTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      toNumber(currentMonthTotals.find((t) => t.type === TRANSACTION_TYPES.INCOME)?._sum.amount) || 0
     );
 
     const monthlyExpenses = roundMoney(
-      currentMonthTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      toNumber(currentMonthTotals.find((t) => t.type === TRANSACTION_TYPES.EXPENSE)?._sum.amount) || 0
     );
 
-    // Previous month stats for comparison
+    // Previous month stats from aggregated data
     const prevMonthIncome = roundMoney(
-      prevMonthTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      toNumber(prevMonthTotals.find((t) => t.type === TRANSACTION_TYPES.INCOME)?._sum.amount) || 0
     );
 
     const prevMonthExpenses = roundMoney(
-      prevMonthTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      toNumber(prevMonthTotals.find((t) => t.type === TRANSACTION_TYPES.EXPENSE)?._sum.amount) || 0
     );
 
     // Calculate percentage changes using single source of truth
     const incomeChange = calculatePercentageChange(monthlyIncome, prevMonthIncome);
     const expenseChange = calculatePercentageChange(monthlyExpenses, prevMonthExpenses);
 
-    // Calculate all-time totals
-    const allTransactions = await prisma.transaction.findMany({
+    // Calculate all-time totals using aggregation (avoids loading all transactions into memory)
+    const allTimeTotals = await prisma.transaction.groupBy({
+      by: ['type'],
       where: { userId },
+      _sum: { amount: true },
     });
 
     const totalIncome = roundMoney(
-      allTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
-        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      toNumber(allTimeTotals.find((t) => t.type === TRANSACTION_TYPES.INCOME)?._sum.amount) || 0
     );
 
     const totalExpenses = roundMoney(
-      allTransactions
-        .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
-        .reduce((sum, t) => sum + toNumber(t.amount), 0)
+      toNumber(allTimeTotals.find((t) => t.type === TRANSACTION_TYPES.EXPENSE)?._sum.amount) || 0
     );
 
     // Build weekly activity data

@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import { createTransactionSchema, transactionQuerySchema } from '@/lib/validations';
 import { ZodError } from 'zod';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
-import { getAvailableCredit } from '@/lib/finance';
+import { toNumber, getAvailableCredit } from '@/lib/finance';
 
 // GET /api/transactions - List transactions with filters
 export async function GET(req: Request) {
@@ -90,62 +90,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = createTransactionSchema.parse(body);
 
-    // Verify account belongs to user and get full account details (including shared limit if any)
-    const account = await prisma.account.findFirst({
-      where: { id: validatedData.accountId, userId },
-      include: {
-        sharedCreditLimit: {
-          include: {
-            accounts: {
-              select: { id: true, balance: true },
-            },
-          },
-        },
-      },
-    });
-
-    if (!account) {
-      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
-    }
-
-    // Validate sufficient funds for expenses (convert Decimal to number)
-    if (validatedData.type === TRANSACTION_TYPES.EXPENSE) {
-      const accountBalance = Number(account.balance);
-
-      if (account.type === ACCOUNT_TYPES.CREDIT) {
-        // For credit cards: check available credit (considering shared limits)
-        const availableCredit = getAvailableCredit(account);
-
-        if (validatedData.amount > availableCredit) {
-          const isShared = !!account.sharedCreditLimitId;
-          return NextResponse.json(
-            {
-              error: `Insufficient credit limit${isShared ? ' (shared)' : ''}. Available: ${availableCredit.toFixed(2)}, Required: ${validatedData.amount.toFixed(2)}`,
-              code: 'INSUFFICIENT_CREDIT',
-              available: availableCredit,
-              required: validatedData.amount,
-              isSharedLimit: isShared,
-            },
-            { status: 400 }
-          );
-        }
-      } else {
-        // For bank/cash accounts: check available balance
-        if (validatedData.amount > accountBalance) {
-          return NextResponse.json(
-            {
-              error: `Insufficient balance. Available: ${accountBalance.toFixed(2)}, Required: ${validatedData.amount.toFixed(2)}`,
-              code: 'INSUFFICIENT_BALANCE',
-              available: accountBalance,
-              required: validatedData.amount,
-            },
-            { status: 400 }
-          );
-        }
-      }
-    }
-
-    // If categoryId provided, verify it exists
+    // If categoryId provided, verify it exists (this can be done outside transaction)
     if (validatedData.categoryId) {
       const category = await prisma.category.findFirst({
         where: {
@@ -159,54 +104,142 @@ export async function POST(req: Request) {
       }
     }
 
-    // Create transaction and update account balance in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the transaction
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          amount: validatedData.amount,
-          type: validatedData.type,
-          categoryId: validatedData.categoryId,
-          accountId: validatedData.accountId,
-          note: validatedData.note,
-          date: validatedData.date ? new Date(validatedData.date) : new Date(),
-        },
-        include: {
-          category: true,
-          account: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
+    // Use serializable isolation to prevent race conditions
+    // All balance checks and updates happen atomically
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // Fetch account with latest balance inside the transaction
+        const account = await tx.account.findFirst({
+          where: { id: validatedData.accountId, userId },
+          include: {
+            sharedCreditLimit: {
+              include: {
+                accounts: {
+                  where: { isArchived: false },
+                  select: { id: true, balance: true },
+                },
+              },
             },
           },
-        },
-      });
-
-      // Update account balance
-      const balanceChange =
-        validatedData.type === TRANSACTION_TYPES.INCOME
-          ? validatedData.amount
-          : validatedData.type === TRANSACTION_TYPES.EXPENSE
-            ? -validatedData.amount
-            : 0;
-
-      if (balanceChange !== 0) {
-        await tx.account.update({
-          where: { id: validatedData.accountId },
-          data: { balance: { increment: balanceChange } },
         });
-      }
 
-      return transaction;
-    });
+        if (!account) {
+          throw new Error('ACCOUNT_NOT_FOUND');
+        }
+
+        // Validate sufficient funds for expenses
+        if (validatedData.type === TRANSACTION_TYPES.EXPENSE) {
+          const accountBalance = toNumber(account.balance);
+
+          if (account.type === ACCOUNT_TYPES.CREDIT) {
+            // For credit cards: check available credit (considering shared limits)
+            const availableCredit = getAvailableCredit(account);
+
+            if (validatedData.amount > availableCredit) {
+              const isShared = !!account.sharedCreditLimitId;
+              throw new Error(
+                JSON.stringify({
+                  code: 'INSUFFICIENT_CREDIT',
+                  message: `Insufficient credit limit${isShared ? ' (shared)' : ''}. Available: ${availableCredit.toFixed(2)}, Required: ${validatedData.amount.toFixed(2)}`,
+                  available: availableCredit,
+                  required: validatedData.amount,
+                  isSharedLimit: isShared,
+                })
+              );
+            }
+          } else {
+            // For bank/cash accounts: check available balance
+            if (validatedData.amount > accountBalance) {
+              throw new Error(
+                JSON.stringify({
+                  code: 'INSUFFICIENT_BALANCE',
+                  message: `Insufficient balance. Available: ${accountBalance.toFixed(2)}, Required: ${validatedData.amount.toFixed(2)}`,
+                  available: accountBalance,
+                  required: validatedData.amount,
+                })
+              );
+            }
+          }
+        }
+
+        // Create the transaction
+        const transaction = await tx.transaction.create({
+          data: {
+            userId,
+            amount: validatedData.amount,
+            type: validatedData.type,
+            categoryId: validatedData.categoryId,
+            accountId: validatedData.accountId,
+            note: validatedData.note,
+            date: validatedData.date ? new Date(validatedData.date) : new Date(),
+          },
+          include: {
+            category: true,
+            account: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+              },
+            },
+          },
+        });
+
+        // Update account balance
+        const balanceChange =
+          validatedData.type === TRANSACTION_TYPES.INCOME
+            ? validatedData.amount
+            : validatedData.type === TRANSACTION_TYPES.EXPENSE
+              ? -validatedData.amount
+              : 0;
+
+        if (balanceChange !== 0) {
+          await tx.account.update({
+            where: { id: validatedData.accountId },
+            data: { balance: { increment: balanceChange } },
+          });
+        }
+
+        return transaction;
+      },
+      {
+        // Use serializable isolation level to prevent race conditions
+        isolationLevel: 'Serializable',
+      }
+    );
 
     return NextResponse.json({ data: result }, { status: 201 });
   } catch (error) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
     }
+
+    // Handle custom errors thrown from transaction
+    if (error instanceof Error) {
+      if (error.message === 'ACCOUNT_NOT_FOUND') {
+        return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      }
+
+      // Try to parse JSON error from insufficient funds
+      try {
+        const parsed = JSON.parse(error.message);
+        if (parsed.code === 'INSUFFICIENT_CREDIT' || parsed.code === 'INSUFFICIENT_BALANCE') {
+          return NextResponse.json(
+            {
+              error: parsed.message,
+              code: parsed.code,
+              available: parsed.available,
+              required: parsed.required,
+              ...(parsed.isSharedLimit !== undefined && { isSharedLimit: parsed.isSharedLimit }),
+            },
+            { status: 400 }
+          );
+        }
+      } catch {
+        // Not a JSON error, continue to generic handler
+      }
+    }
+
     console.error('Error creating transaction:', error);
     return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
   }

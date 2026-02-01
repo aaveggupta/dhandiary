@@ -30,6 +30,9 @@ import {
   // Percentages
   calculatePercentageChange,
   calculatePercentage,
+  // Date calculations
+  calculateDaysUntilDue,
+  getUtilizationStatus,
 } from './finance';
 import { ACCOUNT_TYPES, TRANSACTION_TYPES } from './constants';
 
@@ -657,6 +660,128 @@ describe('calculatePercentage', () => {
 
   it('should handle percentages over 100', () => {
     expect(calculatePercentage(150, 100)).toBe(150);
+  });
+});
+
+// =============================================================================
+// DATE CALCULATIONS
+// =============================================================================
+
+describe('calculateDaysUntilDue', () => {
+  // Helper to create dates
+  const createDate = (year: number, month: number, day: number) => new Date(year, month, day);
+
+  describe('due date in current month', () => {
+    it('should calculate days when due date is later this month', () => {
+      // Jan 15, due on Jan 20 = 5 days
+      expect(calculateDaysUntilDue(20, createDate(2024, 0, 15))).toBe(5);
+
+      // Jan 10, due on Jan 25 = 15 days
+      expect(calculateDaysUntilDue(25, createDate(2024, 0, 10))).toBe(15);
+    });
+
+    it('should return 0 when due today', () => {
+      // Jan 5, due on Jan 5 = 0 days
+      expect(calculateDaysUntilDue(5, createDate(2024, 0, 5))).toBe(0);
+    });
+
+    it('should handle due date at end of month', () => {
+      // Jan 28, due on Jan 31 = 3 days
+      expect(calculateDaysUntilDue(31, createDate(2024, 0, 28))).toBe(3);
+    });
+  });
+
+  describe('due date in next month', () => {
+    it('should calculate days when due date has passed', () => {
+      // Jan 25, due on 5th = 6 days left in Jan + 5 into Feb = 11 days
+      expect(calculateDaysUntilDue(5, createDate(2024, 0, 25))).toBe(11);
+
+      // Jan 28, due on 1st = 3 days left in Jan + 1 into Feb = 4 days
+      expect(calculateDaysUntilDue(1, createDate(2024, 0, 28))).toBe(4);
+    });
+
+    it('should handle year boundary', () => {
+      // Dec 25, due on 5th = 6 days left in Dec + 5 into Jan = 11 days
+      expect(calculateDaysUntilDue(5, createDate(2024, 11, 25))).toBe(11);
+    });
+  });
+
+  describe('month boundary edge cases', () => {
+    it('should handle due day greater than days in short month', () => {
+      // Feb 1, 2024 (leap year, 29 days), due on 31 => treat as Feb 29 = 28 days
+      expect(calculateDaysUntilDue(31, createDate(2024, 1, 1))).toBe(28);
+
+      // Feb 1, 2023 (non-leap year, 28 days), due on 31 => treat as Feb 28 = 27 days
+      expect(calculateDaysUntilDue(31, createDate(2023, 1, 1))).toBe(27);
+    });
+
+    it('should handle transitioning from 31-day to 30-day month', () => {
+      // Jan 31, due on 31 = 0 days (due today)
+      expect(calculateDaysUntilDue(31, createDate(2024, 0, 31))).toBe(0);
+    });
+
+    it('should correctly calculate when due day equals current day but next month has fewer days', () => {
+      // Jan 30, due on 30 = 0 days (due today)
+      expect(calculateDaysUntilDue(30, createDate(2024, 0, 30))).toBe(0);
+
+      // Jan 31, due on 31 = 0 days (due today)
+      expect(calculateDaysUntilDue(31, createDate(2024, 0, 31))).toBe(0);
+    });
+  });
+
+  describe('default parameter', () => {
+    it('should use current date when not provided', () => {
+      // This test just ensures it doesn't throw
+      const result = calculateDaysUntilDue(15);
+      expect(typeof result).toBe('number');
+      expect(result).toBeGreaterThanOrEqual(0);
+    });
+  });
+});
+
+describe('getUtilizationStatus', () => {
+  describe('with default threshold (30)', () => {
+    it('should return good when below threshold', () => {
+      expect(getUtilizationStatus(0)).toBe('good');
+      expect(getUtilizationStatus(15)).toBe('good');
+      expect(getUtilizationStatus(29)).toBe('good');
+    });
+
+    it('should return warning when at or above threshold but below 75%', () => {
+      expect(getUtilizationStatus(30)).toBe('warning');
+      expect(getUtilizationStatus(50)).toBe('warning');
+      expect(getUtilizationStatus(74)).toBe('warning');
+    });
+
+    it('should return danger when at or above 75%', () => {
+      expect(getUtilizationStatus(75)).toBe('danger');
+      expect(getUtilizationStatus(90)).toBe('danger');
+      expect(getUtilizationStatus(100)).toBe('danger');
+      expect(getUtilizationStatus(150)).toBe('danger'); // Over limit
+    });
+  });
+
+  describe('with custom threshold', () => {
+    it('should respect custom threshold for warning', () => {
+      // With 50% threshold
+      expect(getUtilizationStatus(40, 50)).toBe('good');
+      expect(getUtilizationStatus(50, 50)).toBe('warning');
+      expect(getUtilizationStatus(60, 50)).toBe('warning');
+      expect(getUtilizationStatus(75, 50)).toBe('danger');
+    });
+
+    it('should handle zero threshold (always warn)', () => {
+      expect(getUtilizationStatus(0, 0)).toBe('warning');
+      expect(getUtilizationStatus(10, 0)).toBe('warning');
+    });
+
+    it('should handle high threshold', () => {
+      // With 70% threshold, everything below 70 is good
+      expect(getUtilizationStatus(60, 70)).toBe('good');
+      expect(getUtilizationStatus(70, 70)).toBe('warning');
+      expect(getUtilizationStatus(74, 70)).toBe('warning');
+      expect(getUtilizationStatus(75, 70)).toBe('danger');
+    });
   });
 });
 

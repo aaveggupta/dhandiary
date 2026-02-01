@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { createAccountSchema } from '@/lib/validations';
 import { ZodError } from 'zod';
+import { ACCOUNT_TYPES } from '@/lib/constants';
 
 // GET /api/accounts - List all accounts
 export async function GET() {
@@ -51,23 +52,28 @@ export async function POST(req: Request) {
     const body = await req.json();
     const validatedData = createAccountSchema.parse(body);
 
+    // Only apply credit card specific fields for credit card accounts
+    const isCreditCard = validatedData.type === ACCOUNT_TYPES.CREDIT;
+
     const account = await prisma.account.create({
       data: {
         userId,
         name: validatedData.name,
         type: validatedData.type,
         balance: validatedData.balance ?? 0,
-        creditLimit: validatedData.creditLimit,
+        creditLimit: isCreditCard ? validatedData.creditLimit : null,
         currency: validatedData.currency ?? 'USD',
         icon: validatedData.icon,
         bankName: validatedData.bankName,
         lastFourDigits: validatedData.lastFourDigits,
         description: validatedData.description,
-        // Credit card specific fields
-        billingCycleDay: validatedData.billingCycleDay,
-        paymentDueDay: validatedData.paymentDueDay,
-        utilizationAlertEnabled: validatedData.utilizationAlertEnabled ?? true,
-        utilizationAlertPercent: validatedData.utilizationAlertPercent ?? 30,
+        // Credit card specific fields - only set for credit cards
+        billingCycleDay: isCreditCard ? validatedData.billingCycleDay : null,
+        paymentDueDay: isCreditCard ? validatedData.paymentDueDay : null,
+        utilizationAlertEnabled: isCreditCard
+          ? (validatedData.utilizationAlertEnabled ?? true)
+          : false,
+        utilizationAlertPercent: isCreditCard ? (validatedData.utilizationAlertPercent ?? 30) : 30,
       },
     });
 

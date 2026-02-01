@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { updateAccountSchema } from '@/lib/validations';
 import { ZodError } from 'zod';
+import { ACCOUNT_TYPES } from '@/lib/constants';
 
 // GET /api/accounts/[id] - Get a single account
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -61,9 +62,24 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    // Only allow credit card specific fields for credit card accounts
+    const isCreditCard = existingAccount.type === ACCOUNT_TYPES.CREDIT;
+
+    // Build update data, filtering out credit card fields for non-credit accounts
+    const updateData: Record<string, unknown> = { ...validatedData };
+
+    if (!isCreditCard) {
+      // Remove credit card specific fields for non-credit accounts
+      delete updateData.billingCycleDay;
+      delete updateData.paymentDueDay;
+      delete updateData.utilizationAlertEnabled;
+      delete updateData.utilizationAlertPercent;
+      delete updateData.creditLimit;
+    }
+
     const account = await prisma.account.update({
       where: { id },
-      data: validatedData,
+      data: updateData,
     });
 
     return NextResponse.json({ data: account });

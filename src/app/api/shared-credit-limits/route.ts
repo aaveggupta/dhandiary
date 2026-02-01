@@ -18,6 +18,7 @@ export async function GET() {
       where: { userId },
       include: {
         accounts: {
+          where: { isArchived: false },
           select: {
             id: true,
             name: true,
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
       },
       include: {
         accounts: {
+          where: { isArchived: false },
           select: {
             id: true,
             name: true,
