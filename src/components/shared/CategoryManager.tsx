@@ -159,7 +159,10 @@ function CategoryForm({ category, type, onSave, onCancel, isLoading }: CategoryF
   const IconComponent = iconMap[icon] || MoreHorizontal;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border bg-surface p-4">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-xl border border-border bg-surface p-4"
+    >
       <div>
         <label className="mb-1.5 block text-sm font-medium text-muted">Name</label>
         <input
