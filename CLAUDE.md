@@ -7,6 +7,7 @@ This file contains coding conventions, architecture decisions, and rules for AI 
 ## 🏗️ Architecture Overview
 
 ### Tech Stack
+
 - **Framework:** Next.js 15 (App Router)
 - **Database:** PostgreSQL (Neon) with Prisma ORM
 - **Auth:** Clerk
@@ -16,6 +17,7 @@ This file contains coding conventions, architecture decisions, and rules for AI 
 - **Testing:** Vitest
 
 ### Directory Structure
+
 ```
 src/
 ├── app/                    # Next.js App Router pages
@@ -50,6 +52,7 @@ const netWorth = accounts.reduce((sum, acc) => sum + Number(acc.balance), 0);
 ```
 
 **Key functions in finance.ts:**
+
 - `toNumber()` - Convert Prisma Decimal to number
 - `roundMoney()` - Round to 2 decimal places
 - `calculateNetWorth()` - Calculate assets, liabilities, net worth
@@ -72,12 +75,14 @@ const balance = Number(account.balance);
 ### 3. All Calculations Must Be Unit Tested
 
 Tests live in `src/lib/*.test.ts`. Run with:
+
 ```bash
 npm run test        # Watch mode
 npm run test:run    # Single run
 ```
 
 **Before adding new calculations:**
+
 1. Add the function to `finance.ts`
 2. Write tests in `finance.test.ts`
 3. Then use it in components/API routes
@@ -94,10 +99,11 @@ npm run test:run    # Single run
 
 // When displaying to user:
 const outstanding = Math.abs(Math.min(balance, 0)); // Amount owed
-const creditBalance = Math.max(balance, 0);          // Credit available
+const creditBalance = Math.max(balance, 0); // Credit available
 ```
 
 **Use helper functions:**
+
 ```typescript
 import { getCreditCardStatus } from '@/lib/finance';
 
@@ -112,11 +118,13 @@ const status = getCreditCardStatus({ balance: -15000, creditLimit: 100000 });
 Banks are stored globally in the `Bank` table, shared across all users.
 
 **Adding new banks:**
+
 - Pre-seeded banks are in `prisma/seed-banks.ts`
 - Users can add custom banks via the UI
 - Custom banks have `isSystem: false`
 
 **Using BankSelect:**
+
 ```tsx
 import { BankSelect } from '@/components/shared';
 
@@ -124,14 +132,21 @@ import { BankSelect } from '@/components/shared';
   value={bankName}
   onChange={(value) => setBankName(value)}
   placeholder="Select bank..."
-/>
+/>;
 ```
+
+---
+
+## 🎨 UI Components
+
+See [docs/UI-RULES.md](docs/UI-RULES.md) for component-specific rules (Badge variants, Button sizes, etc.)
 
 ---
 
 ## 📝 Code Style
 
 ### Run Before Committing
+
 ```bash
 npm run typecheck   # TypeScript check
 npm run lint        # ESLint
@@ -140,12 +155,14 @@ npm run test:run    # Tests
 ```
 
 ### Naming Conventions
+
 - **Files:** kebab-case (`use-accounts.ts`, `credit-card-insights.test.ts`)
 - **Components:** PascalCase (`AccountCard.tsx`, `BankSelect.tsx`)
 - **Functions:** camelCase (`calculateNetWorth`, `getAvailableCredit`)
 - **Constants:** UPPER_SNAKE_CASE (`ACCOUNT_TYPES`, `TRANSACTION_TYPES`)
 
 ### API Routes
+
 - Use Zod for validation
 - Return consistent response format: `{ data: ... }` or `{ error: ... }`
 - Use `toNumber()` when serializing Prisma Decimals
@@ -163,6 +180,7 @@ return NextResponse.json({ error: 'Message' }, { status: 400 });
 All data fetching uses React Query hooks in `src/hooks/`.
 
 **Pattern:**
+
 ```typescript
 // src/hooks/use-accounts.ts
 export function useAccounts() {
@@ -188,16 +206,19 @@ export function useCreateAccount() {
 ## 🗃️ Database Migrations
 
 **Creating migrations:**
+
 ```bash
 npx prisma migrate dev --name description_of_change
 ```
 
 **Applying to production:**
+
 ```bash
 DATABASE_URL="prod-url" npx prisma migrate deploy
 ```
 
 **Seeding banks:**
+
 ```bash
 npx tsx prisma/seed-banks.ts
 ```
@@ -209,11 +230,13 @@ npx tsx prisma/seed-banks.ts
 **Test file location:** Same directory as source, with `.test.ts` suffix
 
 **What to test:**
+
 - All functions in `finance.ts`
 - Complex business logic
 - Edge cases (zero values, negative numbers, null handling)
 
 **Test structure:**
+
 ```typescript
 describe('functionName', () => {
   it('should handle normal case', () => {
@@ -230,15 +253,15 @@ describe('functionName', () => {
 
 ## 📁 Key Files Reference
 
-| File | Purpose |
-|------|---------|
-| `src/lib/finance.ts` | All financial calculations (single source of truth) |
-| `src/lib/finance.test.ts` | Tests for financial calculations |
-| `src/lib/constants.ts` | App constants (ACCOUNT_TYPES, etc.) |
-| `src/lib/validations.ts` | Zod schemas for API validation |
-| `src/types/index.ts` | TypeScript type definitions |
-| `prisma/schema.prisma` | Database schema |
-| `prisma/seed-banks.ts` | Bank seeding script |
+| File                      | Purpose                                             |
+| ------------------------- | --------------------------------------------------- |
+| `src/lib/finance.ts`      | All financial calculations (single source of truth) |
+| `src/lib/finance.test.ts` | Tests for financial calculations                    |
+| `src/lib/constants.ts`    | App constants (ACCOUNT_TYPES, etc.)                 |
+| `src/lib/validations.ts`  | Zod schemas for API validation                      |
+| `src/types/index.ts`      | TypeScript type definitions                         |
+| `prisma/schema.prisma`    | Database schema                                     |
+| `prisma/seed-banks.ts`    | Bank seeding script                                 |
 
 ---
 
@@ -266,16 +289,16 @@ describe('functionName', () => {
 
 Detailed guides for common tasks are in the `skills/` directory:
 
-| Skill | Description |
-|-------|-------------|
-| [add-feature](skills/add-feature/SKILL.md) | End-to-end guide for adding new features |
-| [add-calculation](skills/add-calculation/SKILL.md) | Adding financial calculations to finance.ts |
-| [add-api-route](skills/add-api-route/SKILL.md) | Creating new API routes |
-| [database-changes](skills/database-changes/SKILL.md) | Schema changes and migrations |
-| [testing](skills/testing/SKILL.md) | Writing and running tests |
+| Skill                                                | Description                                 |
+| ---------------------------------------------------- | ------------------------------------------- |
+| [add-feature](skills/add-feature/SKILL.md)           | End-to-end guide for adding new features    |
+| [add-calculation](skills/add-calculation/SKILL.md)   | Adding financial calculations to finance.ts |
+| [add-api-route](skills/add-api-route/SKILL.md)       | Creating new API routes                     |
+| [database-changes](skills/database-changes/SKILL.md) | Schema changes and migrations               |
+| [testing](skills/testing/SKILL.md)                   | Writing and running tests                   |
 
 **Read the relevant skill before starting work!**
 
 ---
 
-*Last updated: February 2026*
+_Last updated: February 2026_

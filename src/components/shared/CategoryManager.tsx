@@ -113,7 +113,7 @@ function CategoryItem({ category, onEdit, onDelete, isDeleting }: CategoryItemPr
         </div>
         <span className="font-medium">{category.name}</span>
         {category.isSystem && (
-          <Badge variant="default" className="text-xs">
+          <Badge variant="neutral" className="text-xs">
             Default
           </Badge>
         )}
@@ -131,6 +131,7 @@ function CategoryItem({ category, onEdit, onDelete, isDeleting }: CategoryItemPr
         >
           {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
         </Button>
+        å
       </div>
     </div>
   );
