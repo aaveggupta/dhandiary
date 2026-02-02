@@ -76,7 +76,14 @@ export async function POST(req: Request) {
 
       // Create default categories for the new user
       const defaultCategories = [
-        // Expense categories
+        // Expense categories - Essential
+        {
+          name: 'Groceries',
+          icon: 'ShoppingCart',
+          color: '#22c55e',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
         {
           name: 'Food & Dining',
           icon: 'UtensilsCrossed',
@@ -92,15 +99,8 @@ export async function POST(req: Request) {
           isSystem: true,
         },
         {
-          name: 'Shopping',
-          icon: 'ShoppingBag',
-          color: '#ec4899',
-          type: 'EXPENSE' as const,
-          isSystem: true,
-        },
-        {
-          name: 'Entertainment',
-          icon: 'Gamepad2',
+          name: 'Rent & Housing',
+          icon: 'Home',
           color: '#8b5cf6',
           type: 'EXPENSE' as const,
           isSystem: true,
@@ -112,6 +112,45 @@ export async function POST(req: Request) {
           type: 'EXPENSE' as const,
           isSystem: true,
         },
+
+        // Expense categories - Lifestyle
+        {
+          name: 'Shopping',
+          icon: 'ShoppingBag',
+          color: '#ec4899',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Entertainment',
+          icon: 'Gamepad2',
+          color: '#a855f7',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Subscriptions',
+          icon: 'CreditCard',
+          color: '#6366f1',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Personal Care',
+          icon: 'Sparkles',
+          color: '#f472b6',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Clothing',
+          icon: 'Shirt',
+          color: '#e879f9',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+
+        // Expense categories - Health & Education
         {
           name: 'Healthcare',
           icon: 'Heart',
@@ -127,12 +166,50 @@ export async function POST(req: Request) {
           isSystem: true,
         },
         {
-          name: 'Other',
+          name: 'Insurance',
+          icon: 'Shield',
+          color: '#0ea5e9',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+
+        // Expense categories - Other
+        {
+          name: 'Travel',
+          icon: 'Plane',
+          color: '#f59e0b',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Gifts & Donations',
+          icon: 'Gift',
+          color: '#f43f5e',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Pets',
+          icon: 'PawPrint',
+          color: '#84cc16',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Home Maintenance',
+          icon: 'Wrench',
+          color: '#78716c',
+          type: 'EXPENSE' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Miscellaneous',
           icon: 'MoreHorizontal',
           color: '#6b7280',
           type: 'EXPENSE' as const,
           isSystem: true,
         },
+
         // Income categories
         {
           name: 'Salary',
@@ -149,13 +226,41 @@ export async function POST(req: Request) {
           isSystem: true,
         },
         {
+          name: 'Business',
+          icon: 'Building2',
+          color: '#059669',
+          type: 'INCOME' as const,
+          isSystem: true,
+        },
+        {
           name: 'Investment',
           icon: 'TrendingUp',
           color: '#84cc16',
           type: 'INCOME' as const,
           isSystem: true,
         },
-        { name: 'Gift', icon: 'Gift', color: '#f59e0b', type: 'INCOME' as const, isSystem: true },
+        {
+          name: 'Rental Income',
+          icon: 'Home',
+          color: '#65a30d',
+          type: 'INCOME' as const,
+          isSystem: true,
+        },
+        { name: 'Bonus', icon: 'Award', color: '#eab308', type: 'INCOME' as const, isSystem: true },
+        {
+          name: 'Refund',
+          icon: 'RotateCcw',
+          color: '#0891b2',
+          type: 'INCOME' as const,
+          isSystem: true,
+        },
+        {
+          name: 'Gift Received',
+          icon: 'Gift',
+          color: '#f59e0b',
+          type: 'INCOME' as const,
+          isSystem: true,
+        },
         {
           name: 'Other Income',
           icon: 'Plus',
@@ -163,6 +268,7 @@ export async function POST(req: Request) {
           type: 'INCOME' as const,
           isSystem: true,
         },
+
         // Transfer category
         {
           name: 'Transfer',

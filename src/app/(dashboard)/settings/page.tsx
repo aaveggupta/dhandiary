@@ -1,7 +1,8 @@
 'use client';
 
 import { useUser, useClerk } from '@clerk/nextjs';
-import { Card, Button, Badge } from '@/components/ui';
+import { Card, Badge } from '@/components/ui';
+import { CategoryManager } from '@/components/shared/CategoryManager';
 import { useSettings } from '@/hooks';
 import {
   User,
@@ -15,6 +16,7 @@ import {
   LayoutGrid,
   Globe,
   Lock,
+  Tags,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -193,6 +195,16 @@ export default function SettingsPage() {
               <SettingsItem icon={<Globe size={18} />} label="Language" subLabel="English (US)" />
               <SettingsItem icon={<Moon size={18} />} label="Theme" subLabel="Dark Mode" />
             </div>
+          </section>
+
+          {/* Categories */}
+          <section>
+            <SectionHeader
+              icon={<Tags size={20} />}
+              title="Categories"
+              description="Manage your transaction categories."
+            />
+            <CategoryManager />
           </section>
 
           {/* Support */}

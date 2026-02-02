@@ -8,3 +8,4 @@ export { LinkCardModal } from './LinkCardModal';
 export { SharedLimitGroup } from './SharedLimitGroup';
 export { CreditCardAlerts } from './CreditCardAlerts';
 export { BankSelect } from './BankSelect';
+export { CategoryManager } from './CategoryManager';
