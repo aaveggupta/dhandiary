@@ -180,39 +180,103 @@ export default function DashboardPage() {
 
         {/* SIDE COLUMN: Accounts & Activity */}
         <div className="space-y-6">
-          {/* MINI ANALYTICS */}
+          {/* WEEKLY ACTIVITY CHART */}
           <Card className="p-6">
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="font-bold">Weekly Activity</h3>
               <span className="rounded bg-surfaceHighlight px-2 py-1 text-xs text-muted">
                 Last 7 Days
               </span>
             </div>
-            <div className="flex h-32 items-end justify-between gap-2">
-              {(analytics?.weeklyActivity || []).map((day, i) => {
-                const maxValue = Math.max(
-                  ...(analytics?.weeklyActivity || []).map((d) => Math.max(d.income, d.expense)),
-                  1
-                );
-                const height = (Math.max(day.income, day.expense) / maxValue) * 100;
+            {/* Legend */}
+            <div className="mb-4 flex items-center justify-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                <span className="text-muted">Income</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                <span className="text-muted">Expense</span>
+              </div>
+            </div>
+            {(() => {
+              const weeklyData = analytics?.weeklyActivity || [];
+              const hasData = weeklyData.some((d) => d.income > 0 || d.expense > 0);
+              const maxValue = Math.max(
+                ...weeklyData.map((d) => d.income + d.expense),
+                1
+              );
+
+              if (weeklyData.length === 0) {
                 return (
-                  <div
-                    key={i}
-                    className="group flex flex-1 flex-col items-center justify-end gap-2"
-                  >
-                    <div
-                      className="relative w-full rounded-t-sm bg-slate-800 transition-colors duration-300 hover:bg-primary"
-                      style={{ height: `${height || 10}%` }}
-                    >
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap rounded bg-white px-2 py-1 text-[10px] font-bold text-black opacity-0 transition-opacity group-hover:opacity-100">
-                        {formatCurrency(day.income + day.expense, currency)}
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-muted">{day.day}</span>
+                  <div className="flex h-32 items-center justify-center text-sm text-muted">
+                    No activity data available
                   </div>
                 );
-              })}
-            </div>
+              }
+
+              return (
+                <div className="flex h-32 items-end justify-between gap-1.5">
+                  {weeklyData.map((day, i) => {
+                    const incomeHeight = hasData ? (day.income / maxValue) * 100 : 0;
+                    const expenseHeight = hasData ? (day.expense / maxValue) * 100 : 0;
+                    const totalHeight = incomeHeight + expenseHeight;
+                    const minBarHeight = !hasData ? 8 : 0; // Show minimal bars when no data
+
+                    return (
+                      <div
+                        key={i}
+                        className="group relative flex flex-1 flex-col items-center justify-end gap-1.5"
+                      >
+                        {/* Stacked bar container */}
+                        <div
+                          className="relative flex w-full flex-col justify-end overflow-hidden rounded-t-sm"
+                          style={{ height: `${Math.max(totalHeight, minBarHeight)}%` }}
+                        >
+                          {/* Expense bar (top) */}
+                          {(day.expense > 0 || !hasData) && (
+                            <div
+                              className="w-full bg-red-500/80 transition-all duration-300 group-hover:bg-red-500"
+                              style={{
+                                height: hasData
+                                  ? `${(expenseHeight / Math.max(totalHeight, 1)) * 100}%`
+                                  : '50%',
+                                minHeight: day.expense > 0 ? '2px' : undefined,
+                              }}
+                            />
+                          )}
+                          {/* Income bar (bottom) */}
+                          {(day.income > 0 || !hasData) && (
+                            <div
+                              className="w-full bg-emerald-500/80 transition-all duration-300 group-hover:bg-emerald-500"
+                              style={{
+                                height: hasData
+                                  ? `${(incomeHeight / Math.max(totalHeight, 1)) * 100}%`
+                                  : '50%',
+                                minHeight: day.income > 0 ? '2px' : undefined,
+                              }}
+                            />
+                          )}
+                        </div>
+                        {/* Tooltip */}
+                        <div className="pointer-events-none absolute -top-16 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[10px] opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-emerald-400">
+                              +{formatCurrency(day.income, currency)}
+                            </span>
+                            <span className="text-red-400">
+                              -{formatCurrency(day.expense, currency)}
+                            </span>
+                          </div>
+                        </div>
+                        {/* Day label */}
+                        <span className="text-[10px] font-medium text-muted">{day.day}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </Card>
 
           {/* ACCOUNTS LIST */}
