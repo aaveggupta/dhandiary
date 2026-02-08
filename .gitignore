@@ -31,3 +31,9 @@ dist-ssr
 .env*.local
 # Test coverage
 coverage/
+
+# PWA auto-generated files
+public/sw.js
+public/workbox-*.js
+public/sw.js.map
+public/workbox-*.js.map
