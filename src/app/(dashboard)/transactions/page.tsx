@@ -28,8 +28,9 @@ import {
 } from '@/hooks';
 import { formatCurrency, formatRelativeDate } from '@/lib/utils';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
+import { CategoryIcon } from '@/lib/category-icons';
 import { getCreditCardStatus, toNumber, roundMoney } from '@/lib/finance';
-import type { Transaction, TransactionType } from '@/types';
+import type { TransactionType } from '@/types';
 import Link from 'next/link';
 
 interface EditFormState {
@@ -40,23 +41,6 @@ interface EditFormState {
   accountId: string;
   note: string | null;
 }
-
-// Category icons mapping
-const categoryIcons: Record<string, string> = {
-  'Bills & Utilities': '🏠',
-  Education: '📚',
-  Entertainment: '🎬',
-  'Food & Dining': '🍔',
-  Healthcare: '🏥',
-  Other: '📦',
-  Shopping: '🛍️',
-  Transportation: '🚗',
-  Freelance: '💼',
-  Gift: '🎁',
-  Investment: '📈',
-  'Other Income': '💰',
-  Salary: '💵',
-};
 
 function TransactionsContent() {
   const searchParams = useSearchParams();
@@ -362,18 +346,26 @@ function TransactionsContent() {
                     <div className="flex items-center gap-4">
                       {/* Category Icon */}
                       <div
-                        className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl text-2xl transition-transform group-hover:scale-110 ${
+                        className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl transition-transform group-hover:scale-110 ${
                           t.type === TRANSACTION_TYPES.INCOME
                             ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20'
                             : 'bg-gradient-to-br from-red-500/20 to-orange-500/20'
                         }`}
                       >
-                        {categoryIcons[t.category?.name || ''] ||
-                          (t.type === TRANSACTION_TYPES.INCOME ? (
-                            <ArrowDownRight className="text-emerald-400" />
-                          ) : (
-                            <ArrowUpRight className="text-red-400" />
-                          ))}
+                        {t.category ? (
+                          <CategoryIcon
+                            icon={t.category.icon}
+                            color={
+                              t.category.color ||
+                              (t.type === TRANSACTION_TYPES.INCOME ? '#10b981' : '#ef4444')
+                            }
+                            size={24}
+                          />
+                        ) : t.type === TRANSACTION_TYPES.INCOME ? (
+                          <ArrowDownRight className="text-emerald-400" size={24} />
+                        ) : (
+                          <ArrowUpRight className="text-red-400" size={24} />
+                        )}
                       </div>
 
                       {/* Details */}

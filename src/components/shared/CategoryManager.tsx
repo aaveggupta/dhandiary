@@ -1,96 +1,42 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, Button, Badge } from '@/components/ui';
+import { Button, Badge } from '@/components/ui';
 import { useCategories, useCreateCategory, useUpdateCategory, useDeleteCategory } from '@/hooks';
 import {
-  Plus,
-  Pencil,
-  Trash2,
-  X,
-  Check,
-  Loader2,
-  ShoppingCart,
-  UtensilsCrossed,
-  Car,
-  Home,
-  Receipt,
-  ShoppingBag,
-  Gamepad2,
-  CreditCard,
-  Sparkles,
-  Heart,
-  GraduationCap,
-  Shield,
-  Plane,
-  Gift,
-  Wrench,
-  MoreHorizontal,
-  Briefcase,
-  Laptop,
-  Building2,
-  TrendingUp,
-  Award,
-  RotateCcw,
-  ArrowLeftRight,
-  PawPrint,
-  Shirt,
-  type LucideIcon,
-} from 'lucide-react';
+  CATEGORY_ICON_MAP,
+  AVAILABLE_CATEGORY_ICONS,
+  getCategoryIconComponent,
+} from '@/lib/category-icons';
+import { Plus, Pencil, Trash2, X, Check, Loader2, ChevronDown } from 'lucide-react';
 import type { Category, TransactionType } from '@/types';
 
-// Icon mapping
-const iconMap: Record<string, LucideIcon> = {
-  ShoppingCart,
-  UtensilsCrossed,
-  Car,
-  Home,
-  Receipt,
-  ShoppingBag,
-  Gamepad2,
-  CreditCard,
-  Sparkles,
-  Heart,
-  GraduationCap,
-  Shield,
-  Plane,
-  Gift,
-  Wrench,
-  MoreHorizontal,
-  Briefcase,
-  Laptop,
-  Building2,
-  TrendingUp,
-  Award,
-  RotateCcw,
-  ArrowLeftRight,
-  PawPrint,
-  Shirt,
-  Plus,
-};
-
-const availableIcons = Object.keys(iconMap);
-
-const availableColors = [
-  '#ef4444', // red
-  '#f97316', // orange
-  '#f59e0b', // amber
-  '#eab308', // yellow
-  '#84cc16', // lime
-  '#22c55e', // green
-  '#10b981', // emerald
-  '#14b8a6', // teal
-  '#06b6d4', // cyan
-  '#0ea5e9', // sky
-  '#3b82f6', // blue
-  '#6366f1', // indigo
-  '#8b5cf6', // violet
-  '#a855f7', // purple
-  '#d946ef', // fuchsia
-  '#ec4899', // pink
-  '#f43f5e', // rose
-  '#6b7280', // gray
+const AVAILABLE_COLORS = [
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#84cc16',
+  '#22c55e',
+  '#10b981',
+  '#14b8a6',
+  '#06b6d4',
+  '#0ea5e9',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#a855f7',
+  '#d946ef',
+  '#ec4899',
+  '#f43f5e',
+  '#6b7280',
 ];
+
+const TYPE_CONFIG: Record<TransactionType, { label: string; accent: string }> = {
+  EXPENSE: { label: 'Expense', accent: 'text-red-400' },
+  INCOME: { label: 'Income', accent: 'text-emerald-400' },
+  TRANSFER: { label: 'Transfer', accent: 'text-violet-400' },
+};
 
 interface CategoryItemProps {
   category: Category;
@@ -100,38 +46,44 @@ interface CategoryItemProps {
 }
 
 function CategoryItem({ category, onEdit, onDelete, isDeleting }: CategoryItemProps) {
-  const IconComponent = iconMap[category.icon || 'MoreHorizontal'] || MoreHorizontal;
+  const IconComponent = getCategoryIconComponent(category.icon);
 
   return (
-    <div className="flex items-center justify-between border-b border-border p-3 last:border-0">
-      <div className="flex items-center gap-3">
+    <div className="group flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/5 px-4 py-3 transition-colors hover:border-white/10 hover:bg-white/10">
+      <div className="flex min-w-0 flex-1 items-center gap-4">
         <div
-          className="flex h-9 w-9 items-center justify-center rounded-lg"
-          style={{ backgroundColor: `${category.color}20` }}
+          className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105"
+          style={{ backgroundColor: `${category.color || '#6b7280'}20` }}
         >
-          <IconComponent size={18} style={{ color: category.color || '#6b7280' }} />
+          <IconComponent size={22} style={{ color: category.color || '#6b7280' }} />
         </div>
-        <span className="font-medium">{category.name}</span>
-        {category.isSystem && (
-          <Badge variant="neutral" className="text-xs">
-            Default
-          </Badge>
-        )}
+        <div className="min-w-0">
+          <span className="block font-medium">{category.name}</span>
+          {category.isSystem && (
+            <Badge variant="neutral" className="mt-0.5 text-[10px]">
+              Default
+            </Badge>
+          )}
+        </div>
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(category)} className="h-8 w-8 p-0">
-          <Pencil size={14} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onEdit(category)}
+          className="h-9 w-9 p-0 text-muted hover:bg-white/10 hover:text-text"
+        >
+          <Pencil size={16} />
         </Button>
         <Button
           variant="ghost"
           size="sm"
           onClick={() => onDelete(category)}
           disabled={isDeleting}
-          className="h-8 w-8 p-0 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+          className="h-9 w-9 p-0 text-muted hover:bg-red-500/10 hover:text-red-400"
         >
-          {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+          {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
         </Button>
-        å
       </div>
     </div>
   );
@@ -157,41 +109,49 @@ function CategoryForm({ category, type, onSave, onCancel, isLoading }: CategoryF
     onSave({ name: name.trim(), icon, color, type });
   };
 
-  const IconComponent = iconMap[icon] || MoreHorizontal;
+  const IconComponent = getCategoryIconComponent(icon);
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-4 rounded-xl border border-border bg-surface p-4"
-    >
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-muted">Name</label>
+        <label className="mb-2 block text-sm font-medium text-muted">Name</label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Category name"
-          className="w-full rounded-lg border border-border bg-surfaceHighlight px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+          placeholder="e.g. Coffee, Subscriptions"
+          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm transition-colors placeholder:text-white/30 focus:border-primary/50 focus:bg-white/10 focus:outline-none"
           autoFocus
         />
       </div>
 
-      <div className="flex gap-4">
-        <div className="flex-1">
-          <label className="mb-1.5 block text-sm font-medium text-muted">Icon</label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setShowIconPicker(!showIconPicker)}
-              className="flex w-full items-center gap-2 rounded-lg border border-border bg-surfaceHighlight px-3 py-2 text-sm hover:border-primary"
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">Icon</label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowIconPicker(!showIconPicker)}
+            className={`flex w-full items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition-all hover:border-white/20 hover:bg-white/10 ${
+              showIconPicker ? 'border-primary/50 ring-1 ring-primary/30' : ''
+            }`}
+          >
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ backgroundColor: `${color}20` }}
             >
               <IconComponent size={18} style={{ color }} />
-              <span>{icon}</span>
-            </button>
-            {showIconPicker && (
-              <div className="absolute left-0 top-full z-50 mt-1 grid max-h-48 w-full grid-cols-6 gap-1 overflow-y-auto rounded-lg border border-border bg-surface p-2 shadow-xl">
-                {availableIcons.map((iconName) => {
-                  const Icon = iconMap[iconName];
+            </div>
+            <span className="text-sm font-medium">{icon.replace(/([A-Z])/g, ' $1').trim()}</span>
+            <ChevronDown
+              size={16}
+              className={`ml-auto text-muted transition-transform ${showIconPicker ? 'rotate-180' : ''}`}
+            />
+          </button>
+          {showIconPicker && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-52 overflow-y-auto rounded-xl border border-white/10 bg-surface p-3 shadow-2xl backdrop-blur-xl">
+              <div className="grid grid-cols-6 gap-2">
+                {AVAILABLE_CATEGORY_ICONS.map((iconName) => {
+                  const Icon = CATEGORY_ICON_MAP[iconName];
                   return (
                     <button
                       key={iconName}
@@ -200,45 +160,62 @@ function CategoryForm({ category, type, onSave, onCancel, isLoading }: CategoryF
                         setIcon(iconName);
                         setShowIconPicker(false);
                       }}
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-surfaceHighlight ${icon === iconName ? 'bg-primary/20 text-primary' : ''}`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg transition-all hover:scale-110 ${
+                        icon === iconName
+                          ? 'bg-primary/30 text-primary ring-1 ring-primary/50'
+                          : 'hover:bg-white/10'
+                      }`}
                     >
-                      <Icon size={16} />
+                      <Icon size={18} />
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex-1">
-          <label className="mb-1.5 block text-sm font-medium text-muted">Color</label>
-          <div className="flex flex-wrap gap-1.5 rounded-lg border border-border bg-surfaceHighlight p-2">
-            {availableColors.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setColor(c)}
-                className={`h-6 w-6 rounded-full transition-transform hover:scale-110 ${color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-surface' : ''}`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="ghost" onClick={onCancel} disabled={isLoading}>
-          <X size={16} className="mr-1" />
+      <div>
+        <label className="mb-2 block text-sm font-medium text-muted">Color</label>
+        <div className="flex flex-wrap gap-2">
+          {AVAILABLE_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setColor(c)}
+              className={`h-8 w-8 rounded-lg transition-all hover:scale-110 ${
+                color === c ? 'ring-2 ring-white ring-offset-2 ring-offset-surface' : ''
+              }`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="flex gap-3 pt-2">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={onCancel}
+          disabled={isLoading}
+          className="flex-1"
+        >
           Cancel
         </Button>
-        <Button type="submit" disabled={!name.trim() || isLoading}>
+        <Button
+          type="submit"
+          disabled={!name.trim() || isLoading}
+          className="flex-1 bg-gradient-to-r from-primary to-secondary"
+        >
           {isLoading ? (
-            <Loader2 size={16} className="mr-1 animate-spin" />
+            <Loader2 size={16} className="animate-spin" />
           ) : (
-            <Check size={16} className="mr-1" />
+            <>
+              <Check size={16} className="mr-1.5" />
+              {category ? 'Save Changes' : 'Add Category'}
+            </>
           )}
-          {category ? 'Update' : 'Add'}
         </Button>
       </div>
     </form>
@@ -265,21 +242,33 @@ function CategorySection({
   deletingId,
 }: CategorySectionProps) {
   const typeCategories = categories.filter((c) => c.type === type);
+  const { accent } = TYPE_CONFIG[type];
 
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-muted">{title}</h4>
-        <Button variant="ghost" size="sm" onClick={onAdd} className="h-7 text-xs">
-          <Plus size={14} className="mr-1" />
+    <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className={`text-lg font-semibold ${accent}`}>{title}</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onAdd}
+          className={`gap-1.5 ${accent} hover:bg-white/10`}
+        >
+          <Plus size={18} />
           Add
         </Button>
       </div>
-      <div className="overflow-hidden rounded-xl border border-border">
-        {typeCategories.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted">No categories yet</div>
-        ) : (
-          typeCategories.map((category) => (
+      {typeCategories.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-white/10 py-12 text-center">
+          <p className="text-muted">No {title.toLowerCase()} yet</p>
+          <Button variant="ghost" size="sm" onClick={onAdd} className="mt-4">
+            <Plus size={16} className="mr-1.5" />
+            Add your first category
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {typeCategories.map((category) => (
             <CategoryItem
               key={category.id}
               category={category}
@@ -287,10 +276,10 @@ function CategorySection({
               onDelete={onDelete}
               isDeleting={deletingId === category.id}
             />
-          ))
-        )}
-      </div>
-    </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -303,6 +292,19 @@ export function CategoryManager() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [addingType, setAddingType] = useState<TransactionType | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+
+  const openForm = (category: Category | null, type: TransactionType | null) => {
+    setEditingCategory(category);
+    setAddingType(type);
+    setShowModal(true);
+  };
+
+  const closeForm = () => {
+    setEditingCategory(null);
+    setAddingType(null);
+    setShowModal(false);
+  };
 
   const handleSave = async (data: {
     name: string;
@@ -321,8 +323,7 @@ export function CategoryManager() {
       } else {
         await createCategory.mutateAsync(data);
       }
-      setEditingCategory(null);
-      setAddingType(null);
+      closeForm();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'Failed to save category');
     }
@@ -343,71 +344,75 @@ export function CategoryManager() {
 
   if (isLoading) {
     return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-6 w-6 animate-spin text-muted" />
-        </div>
-      </Card>
+      <div className="flex items-center justify-center py-24">
+        <Loader2 className="h-10 w-10 animate-spin text-muted" />
+      </div>
     );
   }
 
-  const isFormOpen = editingCategory || addingType;
+  const isFormOpen = showModal && (editingCategory || addingType);
 
   return (
-    <Card className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-bold">Categories</h3>
-          <p className="text-sm text-muted">Manage your transaction categories</p>
-        </div>
-      </div>
-
-      {isFormOpen && (
-        <div className="mb-6">
-          <CategoryForm
-            category={editingCategory}
-            type={editingCategory?.type || addingType || 'EXPENSE'}
-            onSave={handleSave}
-            onCancel={() => {
-              setEditingCategory(null);
-              setAddingType(null);
-            }}
-            isLoading={createCategory.isPending || updateCategory.isPending}
-          />
-        </div>
-      )}
-
-      <div className="space-y-6">
+    <>
+      {/* Vertical stacked sections - full width, no truncation */}
+      <div className="space-y-8">
         <CategorySection
           title="Expense Categories"
           type="EXPENSE"
           categories={categories}
-          onEdit={setEditingCategory}
+          onEdit={(c) => openForm(c, null)}
           onDelete={handleDelete}
-          onAdd={() => setAddingType('EXPENSE')}
+          onAdd={() => openForm(null, 'EXPENSE')}
           deletingId={deletingId}
         />
-
         <CategorySection
           title="Income Categories"
           type="INCOME"
           categories={categories}
-          onEdit={setEditingCategory}
+          onEdit={(c) => openForm(c, null)}
           onDelete={handleDelete}
-          onAdd={() => setAddingType('INCOME')}
+          onAdd={() => openForm(null, 'INCOME')}
           deletingId={deletingId}
         />
-
         <CategorySection
           title="Transfer"
           type="TRANSFER"
           categories={categories}
-          onEdit={setEditingCategory}
+          onEdit={(c) => openForm(c, null)}
           onDelete={handleDelete}
-          onAdd={() => setAddingType('TRANSFER')}
+          onAdd={() => openForm(null, 'TRANSFER')}
           deletingId={deletingId}
         />
       </div>
-    </Card>
+
+      {/* Modal for Add/Edit */}
+      {isFormOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="animate-scale-in w-full max-w-md rounded-2xl border border-white/10 bg-surface p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">
+                {editingCategory
+                  ? `Edit ${TYPE_CONFIG[editingCategory.type].label} Category`
+                  : `New ${TYPE_CONFIG[addingType || 'EXPENSE'].label} Category`}
+              </h3>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-white/10 hover:text-text"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <CategoryForm
+              category={editingCategory}
+              type={editingCategory?.type || addingType || 'EXPENSE'}
+              onSave={handleSave}
+              onCancel={closeForm}
+              isLoading={createCategory.isPending || updateCategory.isPending}
+            />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

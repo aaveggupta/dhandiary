@@ -12,6 +12,7 @@ import {
 } from '@/hooks';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES, getCurrencySymbol } from '@/lib/constants';
 import { formatCurrency } from '@/lib/utils';
+import { CategoryIcon } from '@/lib/category-icons';
 import { getCreditCardStatus, toNumber } from '@/lib/finance';
 import {
   X,
@@ -29,23 +30,6 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import type { TransactionType } from '@/types';
-
-// Category icons mapping
-const categoryIcons: Record<string, string> = {
-  'Bills & Utilities': '🏠',
-  Education: '📚',
-  Entertainment: '🎬',
-  'Food & Dining': '🍔',
-  Healthcare: '🏥',
-  Other: '📦',
-  Shopping: '🛍️',
-  Transportation: '🚗',
-  Freelance: '💼',
-  Gift: '🎁',
-  Investment: '📈',
-  'Other Income': '💰',
-  Salary: '💵',
-};
 
 export default function AddTransactionPage() {
   const router = useRouter();
@@ -421,11 +405,18 @@ export default function AddTransactionPage() {
               }`}
             >
               <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl text-lg ${
+                className={`flex h-9 w-9 items-center justify-center rounded-xl ${
                   type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
                 }`}
               >
-                {categoryIcons[currentCategory?.name || ''] || '📌'}
+                <CategoryIcon
+                  icon={currentCategory?.icon}
+                  color={
+                    currentCategory?.color ||
+                    (type === TRANSACTION_TYPES.EXPENSE ? '#ef4444' : '#10b981')
+                  }
+                  size={18}
+                />
               </div>
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-sm font-semibold">
@@ -459,11 +450,18 @@ export default function AddTransactionPage() {
                     }`}
                   >
                     <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-lg ${
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${
                         type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
                       }`}
                     >
-                      {categoryIcons[category.name] || '📌'}
+                      <CategoryIcon
+                        icon={category.icon}
+                        color={
+                          category.color ||
+                          (type === TRANSACTION_TYPES.EXPENSE ? '#ef4444' : '#10b981')
+                        }
+                        size={18}
+                      />
                     </div>
                     <div className="flex-1 text-left">
                       <p className="text-sm font-medium">{category.name}</p>

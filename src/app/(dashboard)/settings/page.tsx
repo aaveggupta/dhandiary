@@ -1,8 +1,8 @@
 'use client';
 
 import { useUser, useClerk } from '@clerk/nextjs';
+import Link from 'next/link';
 import { Card, Badge } from '@/components/ui';
-import { CategoryManager } from '@/components/shared/CategoryManager';
 import { useSettings } from '@/hooks';
 import {
   User,
@@ -44,6 +44,7 @@ const SettingsItem = ({
   icon,
   label,
   subLabel,
+  href,
   onClick,
   color = 'text-text',
   rightElement,
@@ -51,27 +52,41 @@ const SettingsItem = ({
   icon: React.ReactNode;
   label: string;
   subLabel?: string;
+  href?: string;
   onClick?: () => void;
   color?: string;
   rightElement?: React.ReactNode;
-}) => (
-  <button
-    onClick={onClick}
-    className="group flex w-full items-center justify-between border-b border-border bg-surface/30 p-4 backdrop-blur-sm transition-colors first:rounded-t-xl last:rounded-b-xl last:border-0 hover:bg-surfaceHighlight/50"
-  >
-    <div className="flex items-center gap-4">
-      <div className="text-muted transition-colors group-hover:text-primary">{icon}</div>
-      <div className="text-left">
-        <span className={`block font-medium ${color}`}>{label}</span>
-        {subLabel && <span className="text-xs text-muted">{subLabel}</span>}
+}) => {
+  const content = (
+    <>
+      <div className="flex items-center gap-4">
+        <div className="text-muted transition-colors group-hover:text-primary">{icon}</div>
+        <div className="text-left">
+          <span className={`block font-medium ${color}`}>{label}</span>
+          {subLabel && <span className="text-xs text-muted">{subLabel}</span>}
+        </div>
       </div>
-    </div>
-    <div className="flex items-center gap-2">
-      {rightElement}
-      <ChevronRight size={16} className="text-slate-600" />
-    </div>
-  </button>
-);
+      <div className="flex items-center gap-2">
+        {rightElement}
+        <ChevronRight size={16} className="text-slate-600" />
+      </div>
+    </>
+  );
+  const className =
+    'group flex w-full items-center justify-between border-b border-border bg-surface/30 p-4 backdrop-blur-sm transition-colors first:rounded-t-xl last:rounded-b-xl last:border-0 hover:bg-surfaceHighlight/50';
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button onClick={onClick} className={className}>
+      {content}
+    </button>
+  );
+};
 
 export default function SettingsPage() {
   const { user } = useUser();
@@ -204,7 +219,14 @@ export default function SettingsPage() {
               title="Categories"
               description="Manage your transaction categories."
             />
-            <CategoryManager />
+            <div className="overflow-hidden rounded-xl border border-border">
+              <SettingsItem
+                href="/settings/categories"
+                icon={<Tags size={18} />}
+                label="Categories"
+                subLabel="Add, edit, or remove transaction categories"
+              />
+            </div>
           </section>
 
           {/* Support */}
