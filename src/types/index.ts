@@ -34,6 +34,7 @@ export type Account = PrismaAccount & {
 export type Transaction = PrismaTransaction & {
   category?: PrismaCategory | null;
   account?: PrismaAccount;
+  destinationAccount?: PrismaAccount | null;
 };
 
 export type Category = PrismaCategory & {
@@ -175,6 +176,7 @@ export interface CreateTransactionInput {
   type: TransactionType;
   categoryId?: string;
   accountId: string;
+  destinationAccountId?: string;
   note?: string;
   date?: string;
 }
@@ -184,6 +186,7 @@ export interface UpdateTransactionInput {
   type?: TransactionType;
   categoryId?: string;
   accountId?: string;
+  destinationAccountId?: string | null;
   note?: string;
   date?: Date;
 }

@@ -46,20 +46,41 @@ export const updateAccountSchema = z.object({
 });
 
 // Transaction schemas
-export const createTransactionSchema = z.object({
-  amount: z.number().positive('Amount must be positive'),
-  type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
-  categoryId: z.string().optional(),
-  accountId: z.string().min(1, 'Account is required'),
-  note: z.string().max(500).optional(),
-  date: z.string().datetime().optional(),
-});
+export const createTransactionSchema = z
+  .object({
+    amount: z.number().positive('Amount must be positive'),
+    type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
+    categoryId: z.string().optional(),
+    accountId: z.string().min(1, 'Account is required'),
+    destinationAccountId: z.string().optional(),
+    note: z.string().max(500).optional(),
+    date: z.string().datetime().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.type === 'TRANSFER') {
+        return !!data.destinationAccountId;
+      }
+      return true;
+    },
+    { message: 'Destination account is required for transfers', path: ['destinationAccountId'] }
+  )
+  .refine(
+    (data) => {
+      if (data.type === 'TRANSFER') {
+        return data.accountId !== data.destinationAccountId;
+      }
+      return true;
+    },
+    { message: 'Source and destination accounts must be different', path: ['destinationAccountId'] }
+  );
 
 export const updateTransactionSchema = z.object({
   amount: z.number().positive().optional(),
   type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']).optional(),
   categoryId: z.string().optional().nullable(),
   accountId: z.string().optional(),
+  destinationAccountId: z.string().optional().nullable(),
   note: z.string().max(500).optional().nullable(),
   date: z.string().datetime().optional(),
 });

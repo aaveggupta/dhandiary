@@ -24,6 +24,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       include: {
         category: true,
         account: true,
+        destinationAccount: true,
       },
     });
 
@@ -60,31 +61,64 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
+    // Determine the new values
+    const newType = validatedData.type || existingTransaction.type;
+    const newAmount = validatedData.amount ?? Number(existingTransaction.amount);
+    const newAccountId = validatedData.accountId || existingTransaction.accountId;
+    const newDestinationAccountId =
+      validatedData.destinationAccountId !== undefined
+        ? validatedData.destinationAccountId
+        : existingTransaction.destinationAccountId;
+
+    // Validate transfer requirements
+    if (newType === TRANSACTION_TYPES.TRANSFER) {
+      if (!newDestinationAccountId) {
+        return NextResponse.json(
+          { error: 'Destination account is required for transfers' },
+          { status: 400 }
+        );
+      }
+      if (newAccountId === newDestinationAccountId) {
+        return NextResponse.json(
+          { error: 'Source and destination accounts must be different' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Get the target account (new or existing)
-    const targetAccountId = validatedData.accountId || existingTransaction.accountId;
     const targetAccount = await prisma.account.findFirst({
-      where: { id: targetAccountId, userId },
+      where: { id: newAccountId, userId },
     });
 
     if (!targetAccount) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
-    // Determine the new type and amount
-    const newType = validatedData.type || existingTransaction.type;
-    const newAmount = validatedData.amount ?? Number(existingTransaction.amount);
+    // For transfers, validate destination account exists
+    if (newType === TRANSACTION_TYPES.TRANSFER && newDestinationAccountId) {
+      const destAccount = await prisma.account.findFirst({
+        where: { id: newDestinationAccountId, userId },
+      });
+      if (!destAccount) {
+        return NextResponse.json({ error: 'Destination account not found' }, { status: 404 });
+      }
+    }
 
-    // Validate sufficient funds for expenses
-    if (newType === TRANSACTION_TYPES.EXPENSE) {
+    // Validate sufficient funds for expenses and transfers
+    if (newType === TRANSACTION_TYPES.EXPENSE || newType === TRANSACTION_TYPES.TRANSFER) {
       // Calculate the available balance after reversing the original transaction
       let availableBalance = Number(targetAccount.balance);
 
       // If we're updating the same account, add back the original transaction's effect
-      if (targetAccountId === existingTransaction.accountId) {
+      if (newAccountId === existingTransaction.accountId) {
         if (existingTransaction.type === TRANSACTION_TYPES.EXPENSE) {
           availableBalance += Number(existingTransaction.amount);
         } else if (existingTransaction.type === TRANSACTION_TYPES.INCOME) {
           availableBalance -= Number(existingTransaction.amount);
+        } else if (existingTransaction.type === TRANSACTION_TYPES.TRANSFER) {
+          // Reverting a transfer means adding back the deducted amount to source
+          availableBalance += Number(existingTransaction.amount);
         }
       }
 
@@ -120,26 +154,42 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       }
     }
 
+    const accountSelect = {
+      id: true,
+      name: true,
+      type: true,
+    };
+
     // Update transaction and adjust account balances in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Calculate balance changes for old transaction (convert Decimal to number)
       const oldAmount = Number(existingTransaction.amount);
-      const oldBalanceChange =
-        existingTransaction.type === TRANSACTION_TYPES.INCOME
-          ? -oldAmount
-          : existingTransaction.type === TRANSACTION_TYPES.EXPENSE
-            ? oldAmount
-            : 0;
 
-      // Revert old balance change
-      if (oldBalanceChange !== 0) {
+      // Step 1: Revert old transaction's balance effects
+      if (existingTransaction.type === TRANSACTION_TYPES.TRANSFER) {
+        // Revert transfer: add back to source, deduct from destination
         await tx.account.update({
           where: { id: existingTransaction.accountId },
-          data: { balance: { increment: oldBalanceChange } },
+          data: { balance: { increment: oldAmount } },
         });
+        if (existingTransaction.destinationAccountId) {
+          await tx.account.update({
+            where: { id: existingTransaction.destinationAccountId },
+            data: { balance: { decrement: oldAmount } },
+          });
+        }
+      } else {
+        const oldBalanceChange =
+          existingTransaction.type === TRANSACTION_TYPES.INCOME ? -oldAmount : oldAmount;
+
+        if (oldBalanceChange !== 0) {
+          await tx.account.update({
+            where: { id: existingTransaction.accountId },
+            data: { balance: { increment: oldBalanceChange } },
+          });
+        }
       }
 
-      // Update transaction
+      // Step 2: Update the transaction record
       const transaction = await tx.transaction.update({
         where: { id },
         data: {
@@ -147,37 +197,44 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           type: validatedData.type,
           categoryId: validatedData.categoryId,
           accountId: validatedData.accountId,
+          destinationAccountId:
+            newType === TRANSACTION_TYPES.TRANSFER ? newDestinationAccountId : null,
           note: validatedData.note,
           date: validatedData.date ? new Date(validatedData.date) : undefined,
         },
         include: {
           category: true,
-          account: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
+          account: { select: accountSelect },
+          destinationAccount: { select: accountSelect },
         },
       });
 
-      // Calculate new balance change
-      // Calculate new balance change (convert Decimal to number)
-      const newAmount = Number(transaction.amount);
-      const newBalanceChange =
-        transaction.type === TRANSACTION_TYPES.INCOME
-          ? newAmount
-          : transaction.type === TRANSACTION_TYPES.EXPENSE
-            ? -newAmount
-            : 0;
+      // Step 3: Apply new transaction's balance effects
+      const finalAmount = Number(transaction.amount);
 
-      // Apply new balance change
-      if (newBalanceChange !== 0) {
+      if (transaction.type === TRANSACTION_TYPES.TRANSFER) {
+        // Deduct from source
         await tx.account.update({
           where: { id: transaction.accountId },
-          data: { balance: { increment: newBalanceChange } },
+          data: { balance: { decrement: finalAmount } },
         });
+        // Add to destination
+        if (transaction.destinationAccountId) {
+          await tx.account.update({
+            where: { id: transaction.destinationAccountId },
+            data: { balance: { increment: finalAmount } },
+          });
+        }
+      } else {
+        const newBalanceChange =
+          transaction.type === TRANSACTION_TYPES.INCOME ? finalAmount : -finalAmount;
+
+        if (newBalanceChange !== 0) {
+          await tx.account.update({
+            where: { id: transaction.accountId },
+            data: { balance: { increment: newBalanceChange } },
+          });
+        }
       }
 
       return transaction;
@@ -215,21 +272,30 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
     // Delete transaction and update account balance
     await prisma.$transaction(async (tx) => {
-      // Calculate balance change to revert (convert Decimal to number)
       const amount = Number(existingTransaction.amount);
-      const balanceChange =
-        existingTransaction.type === TRANSACTION_TYPES.INCOME
-          ? -amount
-          : existingTransaction.type === TRANSACTION_TYPES.EXPENSE
-            ? amount
-            : 0;
 
-      // Revert balance change
-      if (balanceChange !== 0) {
+      if (existingTransaction.type === TRANSACTION_TYPES.TRANSFER) {
+        // Revert transfer: add back to source, deduct from destination
         await tx.account.update({
           where: { id: existingTransaction.accountId },
-          data: { balance: { increment: balanceChange } },
+          data: { balance: { increment: amount } },
         });
+        if (existingTransaction.destinationAccountId) {
+          await tx.account.update({
+            where: { id: existingTransaction.destinationAccountId },
+            data: { balance: { decrement: amount } },
+          });
+        }
+      } else {
+        const balanceChange =
+          existingTransaction.type === TRANSACTION_TYPES.INCOME ? -amount : amount;
+
+        if (balanceChange !== 0) {
+          await tx.account.update({
+            where: { id: existingTransaction.accountId },
+            data: { balance: { increment: balanceChange } },
+          });
+        }
       }
 
       // Delete the transaction

@@ -70,29 +70,33 @@ model Account {
   utilizationAlertPercent Int                @default(30) // Alert when utilization exceeds this %
   createdAt               DateTime           @default(now())
   updatedAt               DateTime           @updatedAt
-  transactions            Transaction[]
+  transactions            Transaction[]      @relation("TransactionSource")
+  transfersIn             Transaction[]      @relation("TransferDestination")
 
   @@index([userId])
   @@index([sharedCreditLimitId])
 }
 
 model Transaction {
-  id         String          @id @default(cuid())
-  userId     String
-  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount     Decimal         @db.Decimal(12, 2)
-  type       TransactionType
-  categoryId String?
-  category   Category?       @relation(fields: [categoryId], references: [id])
-  accountId  String
-  account    Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  note       String?
-  date       DateTime        @default(now())
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  id                    String          @id @default(cuid())
+  userId                String
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount                Decimal         @db.Decimal(12, 2)
+  type                  TransactionType
+  categoryId            String?
+  category              Category?       @relation(fields: [categoryId], references: [id])
+  accountId             String
+  account               Account         @relation("TransactionSource", fields: [accountId], references: [id], onDelete: Cascade)
+  destinationAccountId  String?
+  destinationAccount    Account?        @relation("TransferDestination", fields: [destinationAccountId], references: [id], onDelete: SetNull)
+  note                  String?
+  date                  DateTime        @default(now())
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
 
   @@index([userId])
   @@index([accountId])
+  @@index([destinationAccountId])
   @@index([categoryId])
   @@index([date])
 }

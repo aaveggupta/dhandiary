@@ -41,18 +41,19 @@ export async function GET(req: Request) {
       where.note = { contains: query.search, mode: 'insensitive' };
     }
 
+    const accountSelect = {
+      id: true,
+      name: true,
+      type: true,
+    };
+
     const [transactions, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
         include: {
           category: true,
-          account: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
+          account: { select: accountSelect },
+          destinationAccount: { select: accountSelect },
         },
         orderBy: { date: 'desc' },
         take: query.limit,
@@ -127,8 +128,27 @@ export async function POST(req: Request) {
           throw new Error('ACCOUNT_NOT_FOUND');
         }
 
-        // Validate sufficient funds for expenses
-        if (validatedData.type === TRANSACTION_TYPES.EXPENSE) {
+        // For TRANSFER, validate destination account
+        let destinationAccount = null;
+        if (validatedData.type === TRANSACTION_TYPES.TRANSFER) {
+          if (!validatedData.destinationAccountId) {
+            throw new Error('DESTINATION_REQUIRED');
+          }
+
+          destinationAccount = await tx.account.findFirst({
+            where: { id: validatedData.destinationAccountId, userId },
+          });
+
+          if (!destinationAccount) {
+            throw new Error('DESTINATION_NOT_FOUND');
+          }
+        }
+
+        // Validate sufficient funds for expenses and transfers (deducting from source)
+        if (
+          validatedData.type === TRANSACTION_TYPES.EXPENSE ||
+          validatedData.type === TRANSACTION_TYPES.TRANSFER
+        ) {
           const accountBalance = toNumber(account.balance);
 
           if (account.type === ACCOUNT_TYPES.CREDIT) {
@@ -162,6 +182,12 @@ export async function POST(req: Request) {
           }
         }
 
+        const accountSelect = {
+          id: true,
+          name: true,
+          type: true,
+        };
+
         // Create the transaction
         const transaction = await tx.transaction.create({
           data: {
@@ -170,34 +196,41 @@ export async function POST(req: Request) {
             type: validatedData.type,
             categoryId: validatedData.categoryId,
             accountId: validatedData.accountId,
+            destinationAccountId: validatedData.destinationAccountId || null,
             note: validatedData.note,
             date: validatedData.date ? new Date(validatedData.date) : new Date(),
           },
           include: {
             category: true,
-            account: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-              },
-            },
+            account: { select: accountSelect },
+            destinationAccount: { select: accountSelect },
           },
         });
 
-        // Update account balance
-        const balanceChange =
-          validatedData.type === TRANSACTION_TYPES.INCOME
-            ? validatedData.amount
-            : validatedData.type === TRANSACTION_TYPES.EXPENSE
-              ? -validatedData.amount
-              : 0;
-
-        if (balanceChange !== 0) {
+        // Update account balances
+        if (validatedData.type === TRANSACTION_TYPES.TRANSFER) {
+          // Deduct from source
           await tx.account.update({
             where: { id: validatedData.accountId },
-            data: { balance: { increment: balanceChange } },
+            data: { balance: { decrement: validatedData.amount } },
           });
+          // Add to destination
+          await tx.account.update({
+            where: { id: validatedData.destinationAccountId! },
+            data: { balance: { increment: validatedData.amount } },
+          });
+        } else {
+          const balanceChange =
+            validatedData.type === TRANSACTION_TYPES.INCOME
+              ? validatedData.amount
+              : -validatedData.amount;
+
+          if (balanceChange !== 0) {
+            await tx.account.update({
+              where: { id: validatedData.accountId },
+              data: { balance: { increment: balanceChange } },
+            });
+          }
         }
 
         return transaction;
@@ -218,6 +251,15 @@ export async function POST(req: Request) {
     if (error instanceof Error) {
       if (error.message === 'ACCOUNT_NOT_FOUND') {
         return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+      }
+      if (error.message === 'DESTINATION_REQUIRED') {
+        return NextResponse.json(
+          { error: 'Destination account is required for transfers' },
+          { status: 400 }
+        );
+      }
+      if (error.message === 'DESTINATION_NOT_FOUND') {
+        return NextResponse.json({ error: 'Destination account not found' }, { status: 404 });
       }
 
       // Try to parse JSON error from insufficient funds

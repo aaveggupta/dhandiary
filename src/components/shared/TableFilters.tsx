@@ -5,6 +5,7 @@ import {
   Search,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowLeftRight,
   X,
   Filter,
   ChevronDown,
@@ -94,6 +95,11 @@ export function TableFilters({
               value: TRANSACTION_TYPES.EXPENSE as TransactionType | undefined,
               label: 'Expense',
               icon: <ArrowUpRight size={14} />,
+            },
+            {
+              value: TRANSACTION_TYPES.TRANSFER as TransactionType | undefined,
+              label: 'Transfer',
+              icon: <ArrowLeftRight size={14} />,
             },
           ].map((filter) => (
             <button

@@ -30,6 +30,8 @@ interface EditFormState {
   categoryId: string | null;
   accountId: string;
   originalAccountId: string;
+  destinationAccountId: string | null;
+  originalDestinationAccountId: string | null;
   note: string | null;
   date: string;
 }
@@ -113,6 +115,8 @@ function TransactionsContent() {
       categoryId: transaction.categoryId,
       accountId: transaction.accountId,
       originalAccountId: transaction.accountId,
+      destinationAccountId: transaction.destinationAccountId ?? null,
+      originalDestinationAccountId: transaction.destinationAccountId ?? null,
       note: transaction.note,
       date: new Date(transaction.date).toISOString().split('T')[0],
     });
@@ -157,6 +161,8 @@ function TransactionsContent() {
         adjustedBalance += toNumber(originalTransaction.amount);
       } else if (originalTransaction.type === TRANSACTION_TYPES.INCOME) {
         adjustedBalance -= toNumber(originalTransaction.amount);
+      } else if (originalTransaction.type === TRANSACTION_TYPES.TRANSFER) {
+        adjustedBalance += toNumber(originalTransaction.amount);
       }
     }
 
@@ -175,7 +181,19 @@ function TransactionsContent() {
     const amount = toNumber(editingTransaction.amount);
     if (isNaN(amount) || amount <= 0) return 'Amount must be a positive number';
 
-    if (editingTransaction.type === TRANSACTION_TYPES.EXPENSE) {
+    if (editingTransaction.type === TRANSACTION_TYPES.TRANSFER) {
+      if (!editingTransaction.destinationAccountId) {
+        return 'Destination account is required for transfers';
+      }
+      if (editingTransaction.accountId === editingTransaction.destinationAccountId) {
+        return 'Source and destination accounts must be different';
+      }
+    }
+
+    if (
+      editingTransaction.type === TRANSACTION_TYPES.EXPENSE ||
+      editingTransaction.type === TRANSACTION_TYPES.TRANSFER
+    ) {
       const available = getAvailableFundsForEdit();
       if (available !== null && amount > available) {
         const account = accounts?.find((a) => a.id === editingTransaction.accountId);
@@ -201,6 +219,10 @@ function TransactionsContent() {
         type: editingTransaction.type,
         categoryId: editingTransaction.categoryId || undefined,
         accountId: editingTransaction.accountId,
+        destinationAccountId:
+          editingTransaction.type === TRANSACTION_TYPES.TRANSFER
+            ? editingTransaction.destinationAccountId
+            : null,
         note: editingTransaction.note || undefined,
         date: new Date(editingTransaction.date),
       });
@@ -216,6 +238,7 @@ function TransactionsContent() {
   };
 
   const filteredAccount = accountFilter ? accounts?.find((a) => a.id === accountFilter) : null;
+  const isEditTransfer = editingTransaction?.type === TRANSACTION_TYPES.TRANSFER;
 
   const footerContent = totalCount > 0 && (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -373,7 +396,8 @@ function TransactionsContent() {
                 }}
               />
 
-              {editingTransaction.type === TRANSACTION_TYPES.EXPENSE && (
+              {(editingTransaction.type === TRANSACTION_TYPES.EXPENSE ||
+                editingTransaction.type === TRANSACTION_TYPES.TRANSFER) && (
                 <p className="text-sm text-muted">
                   Available:{' '}
                   <span className="font-semibold text-text">
@@ -387,27 +411,39 @@ function TransactionsContent() {
                 value={editingTransaction.type}
                 onChange={(e) => {
                   setEditError(null);
+                  const newType = e.target.value as TransactionType;
                   setEditingTransaction({
                     ...editingTransaction,
-                    type: e.target.value as TransactionType,
+                    type: newType,
                     categoryId: null,
+                    destinationAccountId:
+                      newType === TRANSACTION_TYPES.TRANSFER
+                        ? editingTransaction.destinationAccountId
+                        : null,
                   });
                 }}
                 options={[
                   { value: TRANSACTION_TYPES.EXPENSE, label: 'Expense' },
                   { value: TRANSACTION_TYPES.INCOME, label: 'Income' },
+                  { value: TRANSACTION_TYPES.TRANSFER, label: 'Transfer' },
                 ]}
               />
 
               {accounts && accounts.length > 0 && (
                 <Select
-                  label="Account"
+                  label={isEditTransfer ? 'From Account' : 'Account'}
                   value={editingTransaction.accountId}
                   onChange={(e) => {
                     setEditError(null);
+                    const newAccountId = e.target.value;
                     setEditingTransaction({
                       ...editingTransaction,
-                      accountId: e.target.value,
+                      accountId: newAccountId,
+                      // Clear destination if it now matches source
+                      destinationAccountId:
+                        editingTransaction.destinationAccountId === newAccountId
+                          ? null
+                          : editingTransaction.destinationAccountId,
                     });
                   }}
                   options={accounts.map((acc) => ({
@@ -417,25 +453,50 @@ function TransactionsContent() {
                 />
               )}
 
-              <Select
-                label="Category"
-                value={editingTransaction.categoryId || ''}
-                onChange={(e) =>
-                  setEditingTransaction({
-                    ...editingTransaction,
-                    categoryId: e.target.value || null,
-                  })
-                }
-                options={[
-                  { value: '', label: 'Uncategorized' },
-                  ...(categories
-                    ?.filter((c) => c.type === editingTransaction.type)
-                    .map((c) => ({
-                      value: c.id,
-                      label: c.name,
-                    })) || []),
-                ]}
-              />
+              {isEditTransfer && accounts && accounts.length > 1 && (
+                <Select
+                  label="To Account"
+                  value={editingTransaction.destinationAccountId || ''}
+                  onChange={(e) => {
+                    setEditError(null);
+                    setEditingTransaction({
+                      ...editingTransaction,
+                      destinationAccountId: e.target.value || null,
+                    });
+                  }}
+                  options={[
+                    { value: '', label: 'Select destination...' },
+                    ...accounts
+                      .filter((acc) => acc.id !== editingTransaction.accountId)
+                      .map((acc) => ({
+                        value: acc.id,
+                        label: acc.name,
+                      })),
+                  ]}
+                />
+              )}
+
+              {!isEditTransfer && (
+                <Select
+                  label="Category"
+                  value={editingTransaction.categoryId || ''}
+                  onChange={(e) =>
+                    setEditingTransaction({
+                      ...editingTransaction,
+                      categoryId: e.target.value || null,
+                    })
+                  }
+                  options={[
+                    { value: '', label: 'Uncategorized' },
+                    ...(categories
+                      ?.filter((c) => c.type === editingTransaction.type)
+                      .map((c) => ({
+                        value: c.id,
+                        label: c.name,
+                      })) || []),
+                  ]}
+                />
+              )}
 
               <Input
                 label="Date"

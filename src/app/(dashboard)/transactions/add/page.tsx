@@ -18,6 +18,7 @@ import {
   X,
   ArrowUpRight,
   ArrowDownRight,
+  ArrowLeftRight,
   Calendar,
   ChevronLeft,
   AlertCircle,
@@ -43,6 +44,7 @@ export default function AddTransactionPage() {
 
   const [amount, setAmount] = useState('');
   const [selectedAccount, setSelectedAccount] = useState('');
+  const [selectedDestinationAccount, setSelectedDestinationAccount] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -51,14 +53,18 @@ export default function AddTransactionPage() {
 
   // UI State
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
+  const [showDestinationDropdown, setShowDestinationDropdown] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const accountDropdownRef = useRef<HTMLDivElement>(null);
+  const destinationDropdownRef = useRef<HTMLDivElement>(null);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   const currency = settings?.currency || 'USD';
+  const isTransfer = type === TRANSACTION_TYPES.TRANSFER;
 
   // Get selected account details
   const currentAccount = accounts?.find((a) => a.id === selectedAccount);
+  const currentDestinationAccount = accounts?.find((a) => a.id === selectedDestinationAccount);
   const currentCategory = categories?.find((c) => c.id === selectedCategory);
   const currentSharedLimit = currentAccount?.sharedCreditLimitId
     ? sharedLimits?.find((sl) => sl.id === currentAccount.sharedCreditLimitId)
@@ -82,7 +88,12 @@ export default function AddTransactionPage() {
   const availableFunds = getAvailableFunds();
   const numAmount = parseFloat(amount) || 0;
   const isInsufficientFunds =
-    type === TRANSACTION_TYPES.EXPENSE && availableFunds !== null && numAmount > availableFunds;
+    (type === TRANSACTION_TYPES.EXPENSE || type === TRANSACTION_TYPES.TRANSFER) &&
+    availableFunds !== null &&
+    numAmount > availableFunds;
+
+  // Destination accounts (exclude source account)
+  const destinationAccounts = accounts?.filter((a) => a.id !== selectedAccount);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -92,6 +103,12 @@ export default function AddTransactionPage() {
         !accountDropdownRef.current.contains(event.target as Node)
       ) {
         setShowAccountDropdown(false);
+      }
+      if (
+        destinationDropdownRef.current &&
+        !destinationDropdownRef.current.contains(event.target as Node)
+      ) {
+        setShowDestinationDropdown(false);
       }
       if (
         categoryDropdownRef.current &&
@@ -116,6 +133,13 @@ export default function AddTransactionPage() {
     }
   }, [categories, selectedCategory]);
 
+  // Clear destination if it matches source
+  useEffect(() => {
+    if (selectedDestinationAccount === selectedAccount) {
+      setSelectedDestinationAccount('');
+    }
+  }, [selectedAccount, selectedDestinationAccount]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
@@ -123,8 +147,13 @@ export default function AddTransactionPage() {
     const submitAmount = parseFloat(amount);
     if (submitAmount <= 0 || !selectedAccount) return;
 
+    if (isTransfer && !selectedDestinationAccount) {
+      setSubmitError('Please select a destination account');
+      return;
+    }
+
     if (
-      type === TRANSACTION_TYPES.EXPENSE &&
+      (type === TRANSACTION_TYPES.EXPENSE || type === TRANSACTION_TYPES.TRANSFER) &&
       availableFunds !== null &&
       submitAmount > availableFunds
     ) {
@@ -141,6 +170,7 @@ export default function AddTransactionPage() {
         type,
         categoryId: selectedCategory || undefined,
         accountId: selectedAccount,
+        destinationAccountId: isTransfer ? selectedDestinationAccount : undefined,
         note: note || undefined,
         date: new Date(date).toISOString(),
       });
@@ -202,6 +232,29 @@ export default function AddTransactionPage() {
     );
   }
 
+  const getTypeGradient = () => {
+    if (type === TRANSACTION_TYPES.EXPENSE) {
+      return 'left-1.5 bg-gradient-to-r from-red-500/20 to-orange-500/20 shadow-lg shadow-red-500/10';
+    }
+    if (type === TRANSACTION_TYPES.INCOME) {
+      return 'left-[calc(33.33%+1px)] bg-gradient-to-r from-emerald-500/20 to-teal-500/20 shadow-lg shadow-emerald-500/10';
+    }
+    return 'left-[calc(66.66%+1px)] bg-gradient-to-r from-blue-500/20 to-cyan-500/20 shadow-lg shadow-blue-500/10';
+  };
+
+  const getSubmitButtonStyle = () => {
+    if (!amount || parseFloat(amount) <= 0 || isInsufficientFunds) {
+      return 'bg-white/10 text-muted';
+    }
+    if (type === TRANSACTION_TYPES.EXPENSE) {
+      return 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/25 hover:shadow-red-500/40';
+    }
+    if (type === TRANSACTION_TYPES.INCOME) {
+      return 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40';
+    }
+    return 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40';
+  };
+
   return (
     <div className="min-h-screen pb-8">
       {/* Header */}
@@ -214,7 +267,7 @@ export default function AddTransactionPage() {
         </button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">New Transaction</h1>
-          <p className="text-xs text-muted">Add income or expense</p>
+          <p className="text-xs text-muted">Add a transaction</p>
         </div>
         <button
           onClick={() => router.push('/dashboard')}
@@ -225,15 +278,11 @@ export default function AddTransactionPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="mx-auto max-w-lg space-y-6">
-        {/* Type Switcher */}
+        {/* Type Switcher - 3-way */}
         <div className="flex justify-center">
           <div className="relative inline-flex rounded-2xl bg-white/5 p-1.5">
             <div
-              className={`absolute top-1.5 h-[calc(100%-12px)] w-[calc(50%-6px)] rounded-xl transition-all duration-300 ease-out ${
-                type === TRANSACTION_TYPES.EXPENSE
-                  ? 'left-1.5 bg-gradient-to-r from-red-500/20 to-orange-500/20 shadow-lg shadow-red-500/10'
-                  : 'left-[calc(50%+3px)] bg-gradient-to-r from-emerald-500/20 to-teal-500/20 shadow-lg shadow-emerald-500/10'
-              }`}
+              className={`absolute top-1.5 h-[calc(100%-12px)] w-[calc(33.33%-4px)] rounded-xl transition-all duration-300 ease-out ${getTypeGradient()}`}
             />
             <button
               type="button"
@@ -241,11 +290,11 @@ export default function AddTransactionPage() {
                 setType(TRANSACTION_TYPES.EXPENSE);
                 setSelectedCategory('');
               }}
-              className={`relative z-10 flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition-all ${
+              className={`relative z-10 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
                 type === TRANSACTION_TYPES.EXPENSE ? 'text-red-400' : 'text-muted hover:text-text'
               }`}
             >
-              <ArrowUpRight size={18} /> Expense
+              <ArrowUpRight size={16} /> Expense
             </button>
             <button
               type="button"
@@ -253,13 +302,27 @@ export default function AddTransactionPage() {
                 setType(TRANSACTION_TYPES.INCOME);
                 setSelectedCategory('');
               }}
-              className={`relative z-10 flex items-center gap-2 rounded-xl px-6 py-3 font-semibold transition-all ${
+              className={`relative z-10 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
                 type === TRANSACTION_TYPES.INCOME
                   ? 'text-emerald-400'
                   : 'text-muted hover:text-text'
               }`}
             >
-              <ArrowDownRight size={18} /> Income
+              <ArrowDownRight size={16} /> Income
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setType(TRANSACTION_TYPES.TRANSFER);
+                setSelectedCategory('');
+              }}
+              className={`relative z-10 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition-all ${
+                type === TRANSACTION_TYPES.TRANSFER
+                  ? 'text-blue-400'
+                  : 'text-muted hover:text-text'
+              }`}
+            >
+              <ArrowLeftRight size={16} /> Transfer
             </button>
           </div>
         </div>
@@ -299,14 +362,16 @@ export default function AddTransactionPage() {
               />
             </div>
 
-            {type === TRANSACTION_TYPES.EXPENSE && currentAccount && availableFunds !== null && (
-              <div
-                className={`mt-4 text-center text-sm ${isInsufficientFunds ? 'text-red-400' : 'text-muted'}`}
-              >
-                Available:{' '}
-                <span className="font-semibold">{formatCurrency(availableFunds, currency)}</span>
-              </div>
-            )}
+            {(type === TRANSACTION_TYPES.EXPENSE || type === TRANSACTION_TYPES.TRANSFER) &&
+              currentAccount &&
+              availableFunds !== null && (
+                <div
+                  className={`mt-4 text-center text-sm ${isInsufficientFunds ? 'text-red-400' : 'text-muted'}`}
+                >
+                  Available:{' '}
+                  <span className="font-semibold">{formatCurrency(availableFunds, currency)}</span>
+                </div>
+              )}
 
             {isInsufficientFunds && (
               <div className="mt-3 flex items-center justify-center gap-2 text-sm text-red-400">
@@ -320,18 +385,19 @@ export default function AddTransactionPage() {
           </div>
         </div>
 
-        {/* Account & Category Dropdowns */}
+        {/* Account & Category/Destination Dropdowns */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Account Dropdown */}
+          {/* Source Account Dropdown */}
           <div className="relative" ref={accountDropdownRef}>
             <label className="mb-2 block text-xs font-bold uppercase tracking-[0.15em] text-muted">
-              Account
+              {isTransfer ? 'From Account' : 'Account'}
             </label>
             <button
               type="button"
               onClick={() => {
                 setShowAccountDropdown(!showAccountDropdown);
                 setShowCategoryDropdown(false);
+                setShowDestinationDropdown(false);
               }}
               className={`flex w-full items-center gap-3 rounded-2xl border bg-white/5 p-3 transition-all hover:bg-white/10 ${
                 showAccountDropdown ? 'border-primary/50' : 'border-white/10'
@@ -389,96 +455,179 @@ export default function AddTransactionPage() {
             )}
           </div>
 
-          {/* Category Dropdown */}
-          <div className="relative" ref={categoryDropdownRef}>
-            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.15em] text-muted">
-              Category
-            </label>
-            <button
-              type="button"
-              onClick={() => {
-                setShowCategoryDropdown(!showCategoryDropdown);
-                setShowAccountDropdown(false);
-              }}
-              className={`flex w-full items-center gap-3 rounded-2xl border bg-white/5 p-3 transition-all hover:bg-white/10 ${
-                showCategoryDropdown ? 'border-primary/50' : 'border-white/10'
-              }`}
-            >
-              <div
-                className={`flex h-9 w-9 items-center justify-center rounded-xl ${
-                  type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
+          {/* Destination Account Dropdown (for transfers) or Category Dropdown */}
+          {isTransfer ? (
+            <div className="relative" ref={destinationDropdownRef}>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.15em] text-muted">
+                To Account
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDestinationDropdown(!showDestinationDropdown);
+                  setShowAccountDropdown(false);
+                  setShowCategoryDropdown(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-2xl border bg-white/5 p-3 transition-all hover:bg-white/10 ${
+                  showDestinationDropdown ? 'border-blue-500/50' : 'border-white/10'
                 }`}
               >
-                <CategoryIcon
-                  icon={currentCategory?.icon}
-                  color={
-                    currentCategory?.color ||
-                    (type === TRANSACTION_TYPES.EXPENSE ? '#ef4444' : '#10b981')
-                  }
-                  size={18}
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${currentDestinationAccount ? getAccountColor(currentDestinationAccount.type) : 'bg-white/10'}`}
+                >
+                  {currentDestinationAccount ? (
+                    getAccountIcon(currentDestinationAccount.type)
+                  ) : (
+                    <ArrowLeftRight size={18} className="text-muted" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-sm font-semibold">
+                    {currentDestinationAccount?.name || 'Select'}
+                  </p>
+                  <p className="truncate text-xs text-muted">
+                    {currentDestinationAccount
+                      ? formatCurrency(toNumber(currentDestinationAccount.balance), currency)
+                      : 'Tap to select'}
+                  </p>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={`flex-shrink-0 text-muted transition-transform ${showDestinationDropdown ? 'rotate-180' : ''}`}
                 />
-              </div>
-              <div className="min-w-0 flex-1 text-left">
-                <p className="truncate text-sm font-semibold">
-                  {currentCategory?.name || 'Select'}
-                </p>
-                <p className="text-xs text-muted">Tap to change</p>
-              </div>
-              <ChevronDown
-                size={16}
-                className={`flex-shrink-0 text-muted transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
-              />
-            </button>
+              </button>
 
-            {/* Category Dropdown List */}
-            {showCategoryDropdown && (
-              <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-white/10 bg-surface/95 p-2 shadow-2xl backdrop-blur-xl">
-                {categories?.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedCategory(category.id);
-                      setShowCategoryDropdown(false);
-                    }}
-                    className={`flex w-full items-center gap-3 rounded-xl p-3 transition-all ${
-                      selectedCategory === category.id
-                        ? type === TRANSACTION_TYPES.EXPENSE
-                          ? 'bg-red-500/20'
-                          : 'bg-emerald-500/20'
-                        : 'hover:bg-white/10'
-                    }`}
-                  >
-                    <div
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                        type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
+              {/* Destination Account Dropdown List */}
+              {showDestinationDropdown && (
+                <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-white/10 bg-surface/95 p-2 shadow-2xl backdrop-blur-xl">
+                  {destinationAccounts?.length ? (
+                    destinationAccounts.map((account) => (
+                      <button
+                        key={account.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDestinationAccount(account.id);
+                          setShowDestinationDropdown(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-xl p-3 transition-all ${
+                          selectedDestinationAccount === account.id
+                            ? 'bg-blue-500/20'
+                            : 'hover:bg-white/10'
+                        }`}
+                      >
+                        <div
+                          className={`flex h-8 w-8 items-center justify-center rounded-lg ${getAccountColor(account.type)}`}
+                        >
+                          {getAccountIcon(account.type)}
+                        </div>
+                        <div className="min-w-0 flex-1 text-left">
+                          <p className="truncate text-sm font-medium">{account.name}</p>
+                          <p className="text-xs text-muted">
+                            {formatCurrency(toNumber(account.balance), currency)}
+                          </p>
+                        </div>
+                        {selectedDestinationAccount === account.id && (
+                          <Check size={16} className="flex-shrink-0 text-blue-400" />
+                        )}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="p-3 text-center text-sm text-muted">No other accounts</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="relative" ref={categoryDropdownRef}>
+              <label className="mb-2 block text-xs font-bold uppercase tracking-[0.15em] text-muted">
+                Category
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCategoryDropdown(!showCategoryDropdown);
+                  setShowAccountDropdown(false);
+                }}
+                className={`flex w-full items-center gap-3 rounded-2xl border bg-white/5 p-3 transition-all hover:bg-white/10 ${
+                  showCategoryDropdown ? 'border-primary/50' : 'border-white/10'
+                }`}
+              >
+                <div
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                    type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
+                  }`}
+                >
+                  <CategoryIcon
+                    icon={currentCategory?.icon}
+                    color={
+                      currentCategory?.color ||
+                      (type === TRANSACTION_TYPES.EXPENSE ? '#ef4444' : '#10b981')
+                    }
+                    size={18}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="truncate text-sm font-semibold">
+                    {currentCategory?.name || 'Select'}
+                  </p>
+                  <p className="text-xs text-muted">Tap to change</p>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={`flex-shrink-0 text-muted transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {/* Category Dropdown List */}
+              {showCategoryDropdown && (
+                <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-white/10 bg-surface/95 p-2 shadow-2xl backdrop-blur-xl">
+                  {categories?.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCategory(category.id);
+                        setShowCategoryDropdown(false);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-xl p-3 transition-all ${
+                        selectedCategory === category.id
+                          ? type === TRANSACTION_TYPES.EXPENSE
+                            ? 'bg-red-500/20'
+                            : 'bg-emerald-500/20'
+                          : 'hover:bg-white/10'
                       }`}
                     >
-                      <CategoryIcon
-                        icon={category.icon}
-                        color={
-                          category.color ||
-                          (type === TRANSACTION_TYPES.EXPENSE ? '#ef4444' : '#10b981')
-                        }
-                        size={18}
-                      />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-sm font-medium">{category.name}</p>
-                    </div>
-                    {selectedCategory === category.id && (
-                      <Check
-                        size={16}
-                        className={
-                          type === TRANSACTION_TYPES.EXPENSE ? 'text-red-400' : 'text-emerald-400'
-                        }
-                      />
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                          type === TRANSACTION_TYPES.EXPENSE ? 'bg-red-500/10' : 'bg-emerald-500/10'
+                        }`}
+                      >
+                        <CategoryIcon
+                          icon={category.icon}
+                          color={
+                            category.color ||
+                            (type === TRANSACTION_TYPES.EXPENSE ? '#ef4444' : '#10b981')
+                          }
+                          size={18}
+                        />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-sm font-medium">{category.name}</p>
+                      </div>
+                      {selectedCategory === category.id && (
+                        <Check
+                          size={16}
+                          className={
+                            type === TRANSACTION_TYPES.EXPENSE ? 'text-red-400' : 'text-emerald-400'
+                          }
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Date & Note */}
@@ -523,15 +672,13 @@ export default function AddTransactionPage() {
           size="lg"
           fullWidth
           disabled={
-            !amount || parseFloat(amount) <= 0 || createTransaction.isPending || isInsufficientFunds
+            !amount ||
+            parseFloat(amount) <= 0 ||
+            createTransaction.isPending ||
+            isInsufficientFunds ||
+            (isTransfer && !selectedDestinationAccount)
           }
-          className={`relative overflow-hidden rounded-2xl py-5 text-lg font-bold transition-all ${
-            !amount || parseFloat(amount) <= 0 || isInsufficientFunds
-              ? 'bg-white/10 text-muted'
-              : type === TRANSACTION_TYPES.EXPENSE
-                ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white shadow-lg shadow-red-500/25 hover:shadow-red-500/40'
-                : 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40'
-          }`}
+          className={`relative overflow-hidden rounded-2xl py-5 text-lg font-bold transition-all ${getSubmitButtonStyle()}`}
         >
           {createTransaction.isPending ? (
             <span className="flex items-center justify-center gap-2">

@@ -42,17 +42,25 @@ export function getTransactionColumns() {
       },
       size: 160,
     }),
-    columnHelper.accessor((row) => row.account?.name ?? '', {
-      id: 'account',
-      header: 'Account',
-      cell: (info) => (
-        <span className="hidden whitespace-nowrap rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-muted md:inline-block">
-          {info.getValue()}
-        </span>
-      ),
-      meta: { className: 'hidden md:table-cell' },
-      size: 140,
-    }),
+    columnHelper.accessor(
+      (row) => {
+        if (row.type === TRANSACTION_TYPES.TRANSFER && row.destinationAccount) {
+          return `${row.account?.name ?? ''} → ${row.destinationAccount.name}`;
+        }
+        return row.account?.name ?? '';
+      },
+      {
+        id: 'account',
+        header: 'Account',
+        cell: (info) => (
+          <span className="hidden whitespace-nowrap rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-muted md:inline-block">
+            {info.getValue()}
+          </span>
+        ),
+        meta: { className: 'hidden md:table-cell' },
+        size: 180,
+      }
+    ),
     columnHelper.accessor('note', {
       header: 'Note',
       cell: (info) => (
@@ -69,7 +77,12 @@ export function getTransactionColumns() {
       cell: (info) => {
         const type = info.getValue();
         const config = TRANSACTION_TYPE_CONFIG[type];
-        const variant = type === TRANSACTION_TYPES.INCOME ? 'success' : 'danger';
+        const variant =
+          type === TRANSACTION_TYPES.INCOME
+            ? 'success'
+            : type === TRANSACTION_TYPES.TRANSFER
+              ? 'neutral'
+              : 'danger';
         return <Badge variant={variant}>{config.label}</Badge>;
       },
       size: 100,
@@ -81,13 +94,14 @@ export function getTransactionColumns() {
         const amount = toNumber(info.getValue());
         const currency = (info.table.options.meta as TransactionTableMeta)?.currency || 'INR';
         const isIncome = row.type === TRANSACTION_TYPES.INCOME;
+        const isTransfer = row.type === TRANSACTION_TYPES.TRANSFER;
         return (
           <span
             className={`whitespace-nowrap text-sm font-semibold ${
-              isIncome ? 'text-emerald-400' : 'text-white'
+              isTransfer ? 'text-blue-400' : isIncome ? 'text-emerald-400' : 'text-white'
             }`}
           >
-            {isIncome ? '+' : '-'}
+            {isTransfer ? '' : isIncome ? '+' : '-'}
             {formatCurrency(amount, currency)}
           </span>
         );
