@@ -2,7 +2,16 @@
 
 import { useState, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Plus, Trash2, X, AlertCircle, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import {
+  Plus,
+  Trash2,
+  X,
+  AlertCircle,
+  TrendingUp,
+  TrendingDown,
+  Sparkles,
+  Download,
+} from 'lucide-react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import { Button, Spinner, Input, Select } from '@/components/ui';
 import { DataTable, TableFilters } from '@/components/shared';
@@ -13,6 +22,7 @@ import {
   useAccounts,
   useCategories,
   useSettings,
+  useExportTransactions,
 } from '@/hooks';
 import { useDebounce } from '@/hooks/use-debounce';
 import { formatCurrency, toNumber, roundMoney, getCreditCardStatus } from '@/lib/finance';
@@ -87,6 +97,7 @@ function TransactionsContent() {
   const { data: settings } = useSettings();
   const deleteTransaction = useDeleteTransaction();
   const updateTransaction = useUpdateTransaction();
+  const { exportCSV, isExporting, exportError, clearExportError } = useExportTransactions();
 
   const currency = settings?.currency || 'USD';
   const transactions = transactionsData?.data || [];
@@ -284,13 +295,57 @@ function TransactionsContent() {
             <p className="mt-1 text-sm text-muted">Track and manage all your transactions</p>
           )}
         </div>
-        <Link href="/transactions/add">
-          <Button className="group bg-gradient-to-r from-primary to-secondary shadow-lg shadow-primary/25 hover:shadow-primary/40">
-            <Plus size={18} className="mr-2 transition-transform group-hover:rotate-90" />
-            Add Transaction
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() =>
+              exportCSV({
+                type: typeFilter,
+                accountId: accountFilter,
+                categoryId: categoryFilter,
+                startDate: startDate ? new Date(startDate).toISOString() : undefined,
+                endDate: endDate ? new Date(endDate + 'T23:59:59.999Z').toISOString() : undefined,
+                search: debouncedSearch || undefined,
+              })
+            }
+            disabled={totalCount === 0 || isExporting}
+          >
+            {isExporting ? (
+              <>
+                <Spinner className="mr-2 h-4 w-4" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <Download size={18} className="mr-2" />
+                Export CSV
+              </>
+            )}
           </Button>
-        </Link>
+          <Link href="/transactions/add">
+            <Button className="group bg-gradient-to-r from-primary to-secondary shadow-lg shadow-primary/25 hover:shadow-primary/40">
+              <Plus size={18} className="mr-2 transition-transform group-hover:rotate-90" />
+              Add Transaction
+            </Button>
+          </Link>
+        </div>
       </div>
+
+      {/* Export Error */}
+      {exportError && (
+        <div className="flex items-center justify-between rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} />
+            <span>{exportError}</span>
+          </div>
+          <button
+            onClick={clearExportError}
+            className="ml-4 flex h-6 w-6 items-center justify-center rounded-full hover:bg-red-500/20"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       {transactions.length > 0 && (
