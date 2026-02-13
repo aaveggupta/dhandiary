@@ -1,23 +1,11 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  ArrowUpRight,
-  ArrowDownRight,
-  Search,
-  Plus,
-  Trash2,
-  Pencil,
-  X,
-  AlertCircle,
-  Filter,
-  Calendar,
-  TrendingUp,
-  TrendingDown,
-  Sparkles,
-} from 'lucide-react';
-import { Card, Button, Spinner, Input, Select } from '@/components/ui';
+import { Plus, Trash2, X, AlertCircle, TrendingUp, TrendingDown, Sparkles } from 'lucide-react';
+import type { SortingState, PaginationState } from '@tanstack/react-table';
+import { Button, Spinner, Input, Select } from '@/components/ui';
+import { DataTable, TableFilters } from '@/components/shared';
 import {
   useTransactions,
   useDeleteTransaction,
@@ -26,12 +14,14 @@ import {
   useCategories,
   useSettings,
 } from '@/hooks';
-import { formatCurrency, formatRelativeDate } from '@/lib/utils';
+import { useDebounce } from '@/hooks/use-debounce';
+import { formatCurrency, toNumber, roundMoney, getCreditCardStatus } from '@/lib/finance';
 import { TRANSACTION_TYPES, ACCOUNT_TYPES } from '@/lib/constants';
-import { CategoryIcon } from '@/lib/category-icons';
-import { getCreditCardStatus, toNumber, roundMoney } from '@/lib/finance';
-import type { TransactionType } from '@/types';
+import { getTransactionColumns, type TransactionTableMeta } from './columns';
+import type { Transaction, TransactionType } from '@/types';
 import Link from 'next/link';
+
+const PAGE_SIZE = 20;
 
 interface EditFormState {
   id: string;
@@ -46,17 +36,47 @@ function TransactionsContent() {
   const searchParams = useSearchParams();
   const accountIdFromUrl = searchParams.get('accountId') || undefined;
 
+  // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TransactionType | undefined>();
   const [accountFilter, setAccountFilter] = useState<string | undefined>(accountIdFromUrl);
+  const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
+  const [startDate, setStartDate] = useState<string | undefined>();
+  const [endDate, setEndDate] = useState<string | undefined>();
+
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: PAGE_SIZE,
+  });
+
+  // Modal state
   const [editingTransaction, setEditingTransaction] = useState<EditFormState | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
+  const debouncedSearch = useDebounce(searchQuery);
+
+  // Reset pagination when filters change
+  const handleFilterChange = useCallback(
+    <T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
+      (value: T) => {
+        setter(value);
+        setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+      },
+    []
+  );
+
   const { data: transactionsData, isLoading } = useTransactions({
-    search: searchQuery || undefined,
+    search: debouncedSearch || undefined,
     type: typeFilter,
     accountId: accountFilter,
+    categoryId: categoryFilter,
+    startDate: startDate ? new Date(startDate) : undefined,
+    endDate: endDate ? new Date(endDate + 'T23:59:59.999Z') : undefined,
+    limit: pagination.pageSize,
+    offset: pagination.pageIndex * pagination.pageSize,
   });
   const { data: accounts } = useAccounts();
   const { data: categories } = useCategories();
@@ -66,10 +86,10 @@ function TransactionsContent() {
 
   const currency = settings?.currency || 'USD';
   const transactions = transactionsData?.data || [];
+  const totalCount = transactionsData?.meta?.total || 0;
+  const pageCount = Math.ceil(totalCount / pagination.pageSize);
 
-  const filteredAccount = accountFilter ? accounts?.find((a) => a.id === accountFilter) : null;
-
-  // Calculate totals using toNumber for consistency
+  // Summary calculations
   const totalIncome = roundMoney(
     transactions
       .filter((t) => t.type === TRANSACTION_TYPES.INCOME)
@@ -79,6 +99,32 @@ function TransactionsContent() {
     transactions
       .filter((t) => t.type === TRANSACTION_TYPES.EXPENSE)
       .reduce((sum, t) => sum + toNumber(t.amount), 0)
+  );
+
+  const columns = useMemo(() => getTransactionColumns(), []);
+
+  const handleEdit = useCallback((transaction: Transaction) => {
+    setEditingTransaction({
+      id: transaction.id,
+      amount: toNumber(transaction.amount),
+      type: transaction.type,
+      categoryId: transaction.categoryId,
+      accountId: transaction.accountId,
+      note: transaction.note,
+    });
+  }, []);
+
+  const handleDeleteClick = useCallback((id: string) => {
+    setDeleteConfirm(id);
+  }, []);
+
+  const tableMeta: TransactionTableMeta = useMemo(
+    () => ({
+      onEdit: handleEdit,
+      onDelete: handleDeleteClick,
+      currency,
+    }),
+    [handleEdit, handleDeleteClick, currency]
   );
 
   const handleDelete = async (id: string) => {
@@ -98,7 +144,6 @@ function TransactionsContent() {
     const originalTransaction = transactions.find((t) => t.id === editingTransaction.id);
     let adjustedBalance = toNumber(account.balance);
 
-    // Reverse the original transaction's effect to get pre-transaction balance
     if (originalTransaction) {
       if (originalTransaction.type === TRANSACTION_TYPES.EXPENSE) {
         adjustedBalance += toNumber(originalTransaction.amount);
@@ -108,7 +153,6 @@ function TransactionsContent() {
     }
 
     if (account.type === ACCOUNT_TYPES.CREDIT) {
-      // Use getCreditCardStatus for single source of truth
       const cardStatus = getCreditCardStatus({
         balance: adjustedBalance,
         creditLimit: toNumber(account.creditLimit),
@@ -161,34 +205,30 @@ function TransactionsContent() {
     }
   };
 
-  // Group transactions by date
-  const groupedTransactions = transactions.reduce(
-    (groups: Record<string, typeof transactions>, transaction) => {
-      const date = new Date(transaction.date).toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      });
-      if (!groups[date]) {
-        groups[date] = [];
-      }
-      groups[date].push(transaction);
-      return groups;
-    },
-    {}
-  );
+  const filteredAccount = accountFilter ? accounts?.find((a) => a.id === accountFilter) : null;
 
-  if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="text-center">
-          <Spinner className="mx-auto h-10 w-10" />
-          <p className="mt-4 text-sm text-muted">Loading transactions...</p>
-        </div>
-      </div>
-    );
-  }
+  const footerContent = totalCount > 0 && (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <span>
+        Showing{' '}
+        <span className="font-semibold text-text">
+          {Math.min(pagination.pageIndex * pagination.pageSize + 1, totalCount)}
+        </span>
+        {' — '}
+        <span className="font-semibold text-text">
+          {Math.min((pagination.pageIndex + 1) * pagination.pageSize, totalCount)}
+        </span>
+        {' of '}
+        <span className="font-semibold text-text">{totalCount}</span> transactions
+      </span>
+      {transactions.length > 0 && (
+        <>
+          <span className="text-emerald-400">+{formatCurrency(totalIncome, currency)}</span>
+          <span className="text-red-400">-{formatCurrency(totalExpense, currency)}</span>
+        </>
+      )}
+    </div>
+  );
 
   return (
     <div className="animate-fade-in space-y-6 pb-20 md:pb-0">
@@ -201,7 +241,7 @@ function TransactionsContent() {
               Showing transactions for{' '}
               <span className="font-semibold text-primary">{filteredAccount.name}</span>
               <button
-                onClick={() => setAccountFilter(undefined)}
+                onClick={() => handleFilterChange(setAccountFilter)(undefined)}
                 className="ml-2 rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-400 hover:bg-red-500/20"
               >
                 Clear
@@ -253,176 +293,44 @@ function TransactionsContent() {
       )}
 
       {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" />
-          <input
-            className="w-full rounded-2xl border border-white/10 bg-white/5 py-3 pl-12 pr-4 text-sm placeholder-white/40 transition-all focus:border-primary/50 focus:bg-primary/5 focus:outline-none"
-            placeholder="Search transactions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <TableFilters
+        searchQuery={searchQuery}
+        onSearchChange={handleFilterChange(setSearchQuery)}
+        typeFilter={typeFilter}
+        onTypeFilterChange={handleFilterChange(setTypeFilter)}
+        accountFilter={accountFilter}
+        onAccountFilterChange={handleFilterChange(setAccountFilter)}
+        categoryFilter={categoryFilter}
+        onCategoryFilterChange={handleFilterChange(setCategoryFilter)}
+        startDate={startDate}
+        onStartDateChange={handleFilterChange(setStartDate)}
+        endDate={endDate}
+        onEndDateChange={handleFilterChange(setEndDate)}
+        accounts={accounts}
+        categories={categories}
+      />
 
-        {/* Type Filter Pills */}
-        <div className="flex gap-2">
-          {[
-            { value: undefined, label: 'All', icon: null },
-            {
-              value: TRANSACTION_TYPES.INCOME,
-              label: 'Income',
-              icon: <ArrowDownRight size={14} />,
-            },
-            {
-              value: TRANSACTION_TYPES.EXPENSE,
-              label: 'Expense',
-              icon: <ArrowUpRight size={14} />,
-            },
-          ].map((filter) => (
-            <button
-              key={filter.label}
-              onClick={() => setTypeFilter(filter.value)}
-              className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all ${
-                typeFilter === filter.value
-                  ? 'bg-primary text-white shadow-lg shadow-primary/25'
-                  : 'bg-white/5 text-muted hover:bg-white/10 hover:text-text'
-              }`}
-            >
-              {filter.icon}
-              {filter.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Account Filter */}
-        {accounts && accounts.length > 0 && (
-          <select
-            value={accountFilter || ''}
-            onChange={(e) => setAccountFilter(e.target.value || undefined)}
-            className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-text focus:border-primary focus:outline-none"
-          >
-            <option value="">All Accounts</option>
-            {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-
-      {/* Transactions List - Grouped by Date */}
-      <div className="space-y-6">
-        {transactions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/5 py-20">
-            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-white/5">
-              <Search size={40} className="text-muted" />
-            </div>
-            <p className="mb-2 text-lg font-semibold">No transactions found</p>
-            <p className="mb-6 text-sm text-muted">
-              Start tracking your money by adding your first transaction
-            </p>
-            <Link href="/transactions/add">
-              <Button className="bg-gradient-to-r from-primary to-secondary">
-                <Plus size={18} className="mr-2" /> Add Transaction
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          Object.entries(groupedTransactions).map(([date, dateTransactions]) => (
-            <div key={date}>
-              <div className="mb-3 flex items-center gap-3">
-                <Calendar size={14} className="text-muted" />
-                <h3 className="text-sm font-semibold text-muted">{date}</h3>
-                <div className="h-px flex-1 bg-white/10" />
-              </div>
-              <div className="space-y-2">
-                {dateTransactions.map((t) => (
-                  <div
-                    key={t.id}
-                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all hover:border-white/20 hover:bg-white/10"
-                  >
-                    <div className="flex items-center gap-4">
-                      {/* Category Icon */}
-                      <div
-                        className={`flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl transition-transform group-hover:scale-110 ${
-                          t.type === TRANSACTION_TYPES.INCOME
-                            ? 'bg-gradient-to-br from-emerald-500/20 to-teal-500/20'
-                            : 'bg-gradient-to-br from-red-500/20 to-orange-500/20'
-                        }`}
-                      >
-                        {t.category ? (
-                          <CategoryIcon
-                            icon={t.category.icon}
-                            color={
-                              t.category.color ||
-                              (t.type === TRANSACTION_TYPES.INCOME ? '#10b981' : '#ef4444')
-                            }
-                            size={24}
-                          />
-                        ) : t.type === TRANSACTION_TYPES.INCOME ? (
-                          <ArrowDownRight className="text-emerald-400" size={24} />
-                        ) : (
-                          <ArrowUpRight className="text-red-400" size={24} />
-                        )}
-                      </div>
-
-                      {/* Details */}
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold">{t.category?.name || 'Uncategorized'}</p>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                          <span className="rounded-full bg-white/10 px-2 py-0.5">
-                            {t.account?.name}
-                          </span>
-                          {t.note && <span className="max-w-[200px] truncate">{t.note}</span>}
-                        </div>
-                      </div>
-
-                      {/* Amount */}
-                      <div className="text-right">
-                        <p
-                          className={`text-xl font-bold ${
-                            t.type === TRANSACTION_TYPES.INCOME ? 'text-emerald-400' : 'text-white'
-                          }`}
-                        >
-                          {t.type === TRANSACTION_TYPES.INCOME ? '+' : '-'}
-                          {formatCurrency(toNumber(t.amount), currency)}
-                        </p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-1 opacity-0 transition-all group-hover:opacity-100">
-                        <button
-                          onClick={() =>
-                            setEditingTransaction({
-                              id: t.id,
-                              amount: toNumber(t.amount),
-                              type: t.type,
-                              categoryId: t.categoryId,
-                              accountId: t.accountId,
-                              note: t.note,
-                            })
-                          }
-                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-muted transition-all hover:bg-primary/20 hover:text-primary"
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm(t.id)}
-                          className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-muted transition-all hover:bg-red-500/20 hover:text-red-400"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+      {/* Data Table */}
+      <DataTable
+        columns={columns}
+        data={transactions}
+        pageCount={pageCount}
+        pagination={pagination}
+        onPaginationChange={setPagination}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        isLoading={isLoading && transactions.length === 0}
+        footer={footerContent}
+        emptyMessage="No transactions found"
+        emptyAction={
+          <Link href="/transactions/add">
+            <Button className="bg-gradient-to-r from-primary to-secondary">
+              <Plus size={18} className="mr-2" /> Add Transaction
+            </Button>
+          </Link>
+        }
+        meta={tableMeta}
+      />
 
       {/* Edit Modal */}
       {editingTransaction && (

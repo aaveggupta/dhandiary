@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import type {
   Transaction,
   CreateTransactionInput,
@@ -29,6 +29,8 @@ async function fetchTransactions(filters?: TransactionFilters): Promise<Transact
   if (filters?.startDate) params.set('startDate', filters.startDate.toISOString());
   if (filters?.endDate) params.set('endDate', filters.endDate.toISOString());
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.limit != null) params.set('limit', String(filters.limit));
+  if (filters?.offset != null) params.set('offset', String(filters.offset));
 
   const response = await fetch(`/api/transactions?${params.toString()}`);
   const result = await response.json();
@@ -102,6 +104,7 @@ export function useTransactions(filters?: TransactionFilters) {
   return useQuery({
     queryKey: [...TRANSACTIONS_KEY, filters],
     queryFn: () => fetchTransactions(filters),
+    placeholderData: keepPreviousData,
   });
 }
 

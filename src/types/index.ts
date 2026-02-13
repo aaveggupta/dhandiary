@@ -209,4 +209,6 @@ export interface TransactionFilters {
   startDate?: Date;
   endDate?: Date;
   search?: string;
+  limit?: number;
+  offset?: number;
 }
