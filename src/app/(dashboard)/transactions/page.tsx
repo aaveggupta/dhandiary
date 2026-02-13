@@ -29,7 +29,9 @@ interface EditFormState {
   type: TransactionType;
   categoryId: string | null;
   accountId: string;
+  originalAccountId: string;
   note: string | null;
+  date: string;
 }
 
 function TransactionsContent() {
@@ -110,7 +112,9 @@ function TransactionsContent() {
       type: transaction.type,
       categoryId: transaction.categoryId,
       accountId: transaction.accountId,
+      originalAccountId: transaction.accountId,
       note: transaction.note,
+      date: new Date(transaction.date).toISOString().split('T')[0],
     });
   }, []);
 
@@ -144,7 +148,11 @@ function TransactionsContent() {
     const originalTransaction = transactions.find((t) => t.id === editingTransaction.id);
     let adjustedBalance = toNumber(account.balance);
 
-    if (originalTransaction) {
+    // Only reverse the original transaction's effect if we're editing on the same account
+    if (
+      originalTransaction &&
+      editingTransaction.accountId === editingTransaction.originalAccountId
+    ) {
       if (originalTransaction.type === TRANSACTION_TYPES.EXPENSE) {
         adjustedBalance += toNumber(originalTransaction.amount);
       } else if (originalTransaction.type === TRANSACTION_TYPES.INCOME) {
@@ -192,7 +200,9 @@ function TransactionsContent() {
         amount: toNumber(editingTransaction.amount),
         type: editingTransaction.type,
         categoryId: editingTransaction.categoryId || undefined,
+        accountId: editingTransaction.accountId,
         note: editingTransaction.note || undefined,
+        date: new Date(editingTransaction.date),
       });
       setEditingTransaction(null);
       setEditError(null);
@@ -389,6 +399,24 @@ function TransactionsContent() {
                 ]}
               />
 
+              {accounts && accounts.length > 0 && (
+                <Select
+                  label="Account"
+                  value={editingTransaction.accountId}
+                  onChange={(e) => {
+                    setEditError(null);
+                    setEditingTransaction({
+                      ...editingTransaction,
+                      accountId: e.target.value,
+                    });
+                  }}
+                  options={accounts.map((acc) => ({
+                    value: acc.id,
+                    label: acc.name,
+                  }))}
+                />
+              )}
+
               <Select
                 label="Category"
                 value={editingTransaction.categoryId || ''}
@@ -407,6 +435,18 @@ function TransactionsContent() {
                       label: c.name,
                     })) || []),
                 ]}
+              />
+
+              <Input
+                label="Date"
+                type="date"
+                value={editingTransaction.date}
+                onChange={(e) =>
+                  setEditingTransaction({
+                    ...editingTransaction,
+                    date: e.target.value,
+                  })
+                }
               />
 
               <Input
